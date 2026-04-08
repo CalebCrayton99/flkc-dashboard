@@ -345,8 +345,9 @@ function App() {
   const [newStaffMem, setNewStaffMem] = useState({name:'', role:'', type:'salary', base:50000, rate:0, hrsWk:0, bonus:0, in401k:false, f401k:0});
   const addNewRep = () => { if(!newRep.name) return; setReps(p=>[...p,{...newRep,id:'rep-'+Date.now()}]); setNewRep({name:'',role:'',market:'KC',base:60000,carType:'annual',carAmt:6000,goal:500000,threshold:250000,bonus:0,moActive:12,in401k:false,f401k:0}); setShowAddRep(false); };
   const addNewStaff = () => { if(!newStaffMem.name) return; setStaff(p=>[...p,{...newStaffMem,id:'staff-'+Date.now()}]); setNewStaffMem({name:'',role:'',type:'salary',base:50000,rate:0,hrsWk:0,bonus:0,in401k:false,f401k:0}); setShowAddStaff(false); };
-  const removeRep = id => setReps(p => p.filter(r => r.id !== id));
-  const removeStaffMem = id => setStaff(p => p.filter(s => s.id !== id));
+  const [confirmDel, setConfirmDel] = useState(null); /* e.g. {type:'rep', id:'jordan'} */
+  const removeRep = id => { setReps(p => p.filter(r => r.id !== id)); setConfirmDel(null); };
+  const removeStaffMem = id => { setStaff(p => p.filter(s => s.id !== id)); setConfirmDel(null); };
   const [rent, sRent] = useState(20400);
   const [ins, sIns] = useState(22546);
   const [tech, sTech] = useState(44264);
@@ -615,7 +616,7 @@ function App() {
   const mN = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   /* Rep card component */
-  function RepCard({nm, rl, base, car, sl, thr, bon = 0, nts, onRemove}) {
+  function RepCard({nm, rl, base, car, sl, thr, bon = 0, nts, repId}) {
     const cm = Math.max(0, sl - thr) * cr;
     const tc = base + car + cm + bon;
     const prt = tc * 0.11;
@@ -624,12 +625,10 @@ function App() {
     const net = gpg - fc;
     const be = fc / gpm;
     const roi = fc > 0 ? gpg / fc : 0;
+    const isConf = confirmDel && confirmDel.type === 'repcard' && confirmDel.id === repId;
     return (
       <div style={{background: "#181b23", borderRadius: 10, padding: 16,
-        border: "1px solid " + (net >= 0 ? "#4ade80" : "#f87171"), minWidth: 0, width: "100%", position: "relative"}}>
-        {onRemove && <button onClick={onRemove} style={{position: "absolute", top: 6, right: 8,
-          background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 13,
-          fontWeight: 700, lineHeight: 1}}>x</button>}
+        border: "1px solid " + (isConf ? "#f87171" : net >= 0 ? "#4ade80" : "#f87171"), minWidth: 0, width: "100%"}}>
         <div style={{display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10}}>
           <div>
             <div style={{fontSize: 15, fontWeight: 700}}>{nm}</div>
@@ -651,6 +650,22 @@ function App() {
           <St l="ROI" v={roi.toFixed(2) + "x"} c={roi >= 1 ? "#4ade80" : "#f87171"}/>
         </div>
         {nts && <div style={{fontSize: 9, color: "#6b7280", marginTop: 6, fontStyle: "italic"}}>{nts}</div>}
+        {repId && <div style={{display: "flex", justifyContent: "flex-end", marginTop: 8}}>
+          {isConf
+            ? <div style={{display: "flex", gap: 6, alignItems: "center"}}>
+                <span style={{fontSize: 10, color: "#f87171"}}>Remove {nm}?</span>
+                <button onClick={() => removeRep(repId)}
+                  style={{padding: "3px 10px", borderRadius: 4, background: "#f87171",
+                    color: "#fff", fontSize: 9, fontWeight: 700, border: "none", cursor: "pointer"}}>Yes, Remove</button>
+                <button onClick={() => setConfirmDel(null)}
+                  style={{padding: "3px 10px", borderRadius: 4, background: "#2a2d38",
+                    color: "#9ca3af", fontSize: 9, fontWeight: 600, border: "none", cursor: "pointer"}}>Cancel</button>
+              </div>
+            : <button onClick={() => setConfirmDel({type:'repcard', id:repId})}
+                style={{padding: "3px 10px", borderRadius: 4, border: "1px solid #2a2d38",
+                  background: "none", color: "#6b7280", fontSize: 9, cursor: "pointer"}}>Remove</button>
+          }
+        </div>}
       </div>
     );
   }
@@ -796,9 +811,9 @@ function App() {
             <Sc t="Staff">
               {staff.map(s => {
                 const sc = staffC.find(x => x.id === s.id);
-                return <div key={s.id} style={{position: "relative", marginBottom: 4}}>
-                  <button onClick={() => removeStaffMem(s.id)} style={{position: "absolute", top: 0, right: 0,
-                    background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 11, zIndex: 1}}>x</button>
+                const isConf = confirmDel && confirmDel.type === 'staff' && confirmDel.id === s.id;
+                return <div key={s.id} style={{marginBottom: 8, padding: "10px 12px", background: "#181b23",
+                  borderRadius: 7, border: "1px solid " + (isConf ? "#f87171" : "#2a2d38")}}>
                   {s.type === 'hourly'
                     ? <Sl l={s.name + " (" + s.role + ") hrs/wk"} v={s.hrsWk} set={v => updStaff(s.id, 'hrsWk', v)}
                         mn={0} mx={40} st={5} f={v => v + "h"}
@@ -810,6 +825,22 @@ function App() {
                           set={v => updStaff(s.id, 'bonus', v)}/> : null}
                       </div>
                   }
+                  <div style={{display: "flex", justifyContent: "flex-end", marginTop: 4}}>
+                    {isConf
+                      ? <div style={{display: "flex", gap: 6, alignItems: "center"}}>
+                          <span style={{fontSize: 10, color: "#f87171"}}>Remove {s.name}?</span>
+                          <button onClick={() => removeStaffMem(s.id)}
+                            style={{padding: "3px 10px", borderRadius: 4, background: "#f87171",
+                              color: "#fff", fontSize: 9, fontWeight: 700, border: "none", cursor: "pointer"}}>Yes, Remove</button>
+                          <button onClick={() => setConfirmDel(null)}
+                            style={{padding: "3px 10px", borderRadius: 4, background: "#2a2d38",
+                              color: "#9ca3af", fontSize: 9, fontWeight: 600, border: "none", cursor: "pointer"}}>Cancel</button>
+                        </div>
+                      : <button onClick={() => setConfirmDel({type:'staff', id:s.id})}
+                          style={{padding: "3px 10px", borderRadius: 4, border: "1px solid #2a2d38",
+                            background: "none", color: "#6b7280", fontSize: 9, cursor: "pointer"}}>Remove</button>
+                    }
+                  </div>
                 </div>;
               })}
               <button onClick={() => setShowAddStaff(!showAddStaff)}
@@ -840,12 +871,28 @@ function App() {
             <Sc t="Rep Compensation">
               {reps.map(r => {
                 const rc = repC.find(x => x.id === r.id);
-                return <div key={r.id} style={{position: "relative", marginBottom: 4}}>
-                  <button onClick={() => removeRep(r.id)} style={{position: "absolute", top: 0, right: 0,
-                    background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 11, zIndex: 1}}>x</button>
-                  <Sl l={r.name + " Base"} v={r.base} set={v => updRep(r.id, 'base', v)}
+                const isConf = confirmDel && confirmDel.type === 'rep' && confirmDel.id === r.id;
+                return <div key={r.id} style={{marginBottom: 8, padding: "10px 12px", background: "#181b23",
+                  borderRadius: 7, border: "1px solid " + (isConf ? "#f87171" : "#2a2d38")}}>
+                  <Sl l={r.name + " Base (" + r.market + ")"} v={r.base} set={v => updRep(r.id, 'base', v)}
                     mn={30000} mx={150000} st={1000}
                     sub={r.moActive < 12 ? "Prorated " + r.moActive + "mo = " + fm(rc ? rc.proBase : 0) : undefined}/>
+                  <div style={{display: "flex", justifyContent: "flex-end", marginTop: 4}}>
+                    {isConf
+                      ? <div style={{display: "flex", gap: 6, alignItems: "center"}}>
+                          <span style={{fontSize: 10, color: "#f87171"}}>Remove {r.name}?</span>
+                          <button onClick={() => removeRep(r.id)}
+                            style={{padding: "3px 10px", borderRadius: 4, background: "#f87171",
+                              color: "#fff", fontSize: 9, fontWeight: 700, border: "none", cursor: "pointer"}}>Yes, Remove</button>
+                          <button onClick={() => setConfirmDel(null)}
+                            style={{padding: "3px 10px", borderRadius: 4, background: "#2a2d38",
+                              color: "#9ca3af", fontSize: 9, fontWeight: 600, border: "none", cursor: "pointer"}}>Cancel</button>
+                        </div>
+                      : <button onClick={() => setConfirmDel({type:'rep', id:r.id})}
+                          style={{padding: "3px 10px", borderRadius: 4, border: "1px solid #2a2d38",
+                            background: "none", color: "#6b7280", fontSize: 9, cursor: "pointer"}}>Remove</button>
+                    }
+                  </div>
                 </div>;
               })}
               <button onClick={() => setShowAddRep(!showAddRep)}
@@ -912,7 +959,7 @@ function App() {
               <RepCard key={r.id} nm={r.name} rl={r.role} base={r.proBase} car={r.carAnn}
                 sl={r.goal} thr={r.threshold} bon={r.bonus}
                 nts={"Actual YTD: " + fm(aByR(r.name)) + (r.moActive < 12 ? " | " + fm(r.base) + " prorated " + r.moActive + "mo = " + fm(r.proBase) : "")}
-                onRemove={() => removeRep(r.id)}/>
+                repId={r.id}/>
             )}
           </div>
           <Rw>
