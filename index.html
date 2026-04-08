@@ -8,6 +8,7 @@
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0f1117;color:#e8eaed;font-family:'DM Sans',sans-serif}
@@ -392,6 +393,92 @@ function App() {
   const [jcItems, setJcItems] = useState([]);
   const [showJcAdd, setShowJcAdd] = useState(false);
   const [jcNew, setJcNew] = useState({cat: "Material", desc: "", qty: 1, unit: 0, hrs: 0, rate: 0});
+  const [jcUploadMsg, setJcUploadMsg] = useState("");
+
+  /* Map Buildertrend category codes to our categories */
+  const mapBtCat = (catCode, costType) => {
+    if (!catCode) return "Other";
+    const c = catCode.toLowerCase();
+    if (c.includes("site work") || c.includes("installation")) return "Subcontractor";
+    if (c.includes("freight")) return "Material";
+    if (costType === "Labor") return "Labor";
+    if (costType === "Material") return "Material";
+    if (c.includes("infill") || c.includes("k9grass") || c.includes("golfgreen") || c.includes("golf")
+      || c.includes("plastic lumber") || c.includes("landscape") || c.includes("playground")
+      || c.includes("sports") || c.includes("turf") || c.includes("bocce")) return "Material";
+    if (c.includes("equipment") || c.includes("rental")) return "Equipment";
+    return "Other";
+  };
+
+  const parseUploadedFile = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, {type: "array"});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, {defval: ""});
+        if (!data.length) { setJcUploadMsg("No data found in file."); return; }
+
+        let items = [];
+        const cols = Object.keys(data[0]);
+
+        /* Detect format: Job Costing Budget Cost Summary */
+        if (cols.includes("Type") && cols.includes("Cost Category")) {
+          const codeRows = data.filter(r => r.Type === "Cost Code");
+          items = codeRows.map(r => {
+            const cat = mapBtCat(r["Cost Category"], "");
+            const cost = r["Actual Costs"] || r["Committed Costs"] || r["Revised Budget Costs"] || r["Original Budget Costs"] || 0;
+            return {
+              cat,
+              desc: (r["Cost Code"] || r["Cost Category"] || "").replace(/^\d+\s*-\s*/, ""),
+              qty: 1,
+              unit: +cost,
+              hrs: 0,
+              rate: 0,
+              cost: +cost,
+              id: Date.now() + Math.random()
+            };
+          }).filter(i => i.cost > 0);
+          setJcUploadMsg("Loaded " + items.length + " cost codes from Job Costing report.");
+        }
+        /* Detect format: EstimateReport */
+        else if (cols.includes("Category") && cols.includes("Builder Cost")) {
+          items = data.filter(r => r["Line Item Type"] === "Estimate" && r["Builder Cost"])
+            .map(r => {
+              const cat = mapBtCat(r["Category"], r["Cost Type"]);
+              const qty = +r["Quantity"] || 1;
+              const unit = +r["Unit Cost"] || 0;
+              const cost = +r["Builder Cost"] || 0;
+              const desc = ((r["Cost Code"] || r["Title"] || r["Category"]) + "").replace(/^\d+\s*-\s*/, "");
+              const descFull = r["Description"] ? desc + " — " + String(r["Description"]).split("\n")[0] : desc;
+              return {
+                cat,
+                desc: descFull.substring(0, 80),
+                qty,
+                unit,
+                hrs: cat === "Labor" ? qty : 0,
+                rate: cat === "Labor" ? unit : 0,
+                cost,
+                id: Date.now() + Math.random()
+              };
+            }).filter(i => i.cost > 0);
+          setJcUploadMsg("Loaded " + items.length + " line items from Estimate report.");
+        }
+        else {
+          setJcUploadMsg("Unrecognized format. Expected Buildertrend Estimate or Job Costing report.");
+          return;
+        }
+
+        if (items.length > 0) {
+          setJcItems(prev => [...prev, ...items]);
+        }
+      } catch (err) {
+        setJcUploadMsg("Error reading file: " + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   const addJcItem = () => {
     if (!jcNew.desc) return;
     const cost = jcNew.cat === "Labor" ? jcNew.hrs * jcNew.rate : jcNew.qty * jcNew.unit;
@@ -1223,6 +1310,19 @@ function App() {
                 )}
               </select>
             </div>
+
+            {/* Upload area */}
+            {jcProj && <div style={{display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap"}}>
+              <label style={{padding: "7px 16px", borderRadius: 6, background: "#5b8af5",
+                color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", display: "inline-block"}}>
+                Upload .xls / .xlsx
+                <input type="file" accept=".xls,.xlsx,.csv" style={{display: "none"}}
+                  onChange={e => { if (e.target.files[0]) { setJcUploadMsg(""); parseUploadedFile(e.target.files[0]); e.target.value = ""; }}}/>
+              </label>
+              <span style={{fontSize: 10, color: "#6b7280"}}>
+                Supports Buildertrend EstimateReport & Job Costing Budget Cost Summary</span>
+              {jcUploadMsg && <span style={{fontSize: 10, color: "#4ade80", fontWeight: 600}}>{jcUploadMsg}</span>}
+            </div>}
 
             {selProj && <div>
               {/* Project header card */}
