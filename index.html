@@ -394,6 +394,7 @@ function App() {
   const [showJcAdd, setShowJcAdd] = useState(false);
   const [jcNew, setJcNew] = useState({cat: "Material", desc: "", qty: 1, unit: 0, hrs: 0, rate: 0});
   const [jcUploadMsg, setJcUploadMsg] = useState("");
+  const [jcOhPct, setJcOhPct] = useState(null); /* null = auto from P&L */
 
   /* Map Buildertrend category codes to our categories */
   const mapBtCat = (catCode, costType) => {
@@ -1239,6 +1240,10 @@ function App() {
           const gpPct = revenue > 0 ? gpAmt / revenue : 0;
           const sfTotal = selProj ? (selProj.sf || 0) : 0;
           const costPsf = sfTotal > 0 ? totalCost / sfTotal : 0;
+          const ohRate = jcOhPct !== null ? jcOhPct : (tRev > 0 ? tExp / tRev : 0);
+          const ohAlloc = revenue * ohRate;
+          const netAmt = gpAmt - ohAlloc;
+          const netPct = revenue > 0 ? netAmt / revenue : 0;
 
           const CostTable = ({items, label}) => items.length > 0 ? (
             <div style={{marginBottom: 12}}>
@@ -1328,10 +1333,15 @@ function App() {
               {/* Project header card */}
               <div style={{display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap"}}>
                 <KP l="Revenue" v={fm(revenue)} c="#5b8af5"/>
-                <KP l="Total Cost" v={fm(totalCost)} c="#fbbf24"/>
+                <KP l="Total Cost (COGS)" v={fm(totalCost)} c="#fbbf24"/>
                 <KP l="Gross Profit" v={fm(gpAmt)} c={gpAmt >= 0 ? "#4ade80" : "#f87171"}
                   sub={fP(gpPct) + " margin"}/>
-                <KP l="Net / Sqft" v={sfTotal > 0 ? "$" + costPsf.toFixed(2) : "N/A"}
+                <KP l="OH Allocation" v={fm(ohAlloc)} c="#f59e0b"
+                  sub={fP(ohRate) + " of revenue"}/>
+                <KP l="Net Profit" v={fm(netAmt)}
+                  c={netAmt >= 0 ? "#4ade80" : "#f87171"}
+                  sub={fP(netPct) + " net margin"}/>
+                <KP l="Cost / Sqft" v={sfTotal > 0 ? "$" + costPsf.toFixed(2) : "N/A"}
                   sub={sfTotal > 0 ? sfTotal.toLocaleString() + " sqft" : "No sqft entered"}/>
               </div>
 
@@ -1345,13 +1355,19 @@ function App() {
                   <CostTable items={othItems} label="Other"/>
 
                   {allItems.length > 0 && <div style={{padding: "10px 12px", background: "#181b23",
-                    borderRadius: 8, border: "1px solid " + (gpAmt >= 0 ? "#4ade80" : "#f87171"),
+                    borderRadius: 8, border: "1px solid " + (netAmt >= 0 ? "#4ade80" : "#f87171"),
                     marginBottom: 14}}>
-                    <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 11}}>
+                    <div style={{fontSize: 11}}>
                       <St l="Revenue" v={fm(revenue)} c="#5b8af5"/>
                       <St l="Total COGS" v={fm(totalCost)} c="#fbbf24"/>
-                      <St l="Gross Profit $" v={fm(gpAmt)} c={gpAmt >= 0 ? "#4ade80" : "#f87171"}/>
-                      <St l="GP %" v={fP(gpPct)} c={gpPct >= 0.26 ? "#4ade80" : gpPct >= 0.15 ? "#fbbf24" : "#f87171"}/>
+                      <St l="Gross Profit" v={fm(gpAmt) + " (" + fP(gpPct) + ")"} c={gpAmt >= 0 ? "#4ade80" : "#f87171"}/>
+                      <St l={"OH Allocation (" + fP(ohRate) + ")"} v={fm(ohAlloc)} c="#f59e0b"/>
+                      <div style={{display: "flex", justifyContent: "space-between", padding: "6px 0",
+                        fontWeight: 800, fontSize: 12, borderTop: "2px solid " + (netAmt >= 0 ? "#4ade80" : "#f87171"), marginTop: 4}}>
+                        <span>Net Profit</span>
+                        <span style={{fontFamily: M, color: netAmt >= 0 ? "#4ade80" : "#f87171"}}>
+                          {fm(netAmt)} ({fP(netPct)})</span>
+                      </div>
                     </div>
                   </div>}
 
@@ -1361,6 +1377,28 @@ function App() {
                 </div>
 
                 <div>
+                  {/* Overhead rate control */}
+                  <div style={{background: "#181b23", borderRadius: 8, padding: 12,
+                    border: "1px solid #2a2d38", marginBottom: 12}}>
+                    <div style={{fontSize: 10, fontWeight: 700, color: "#f59e0b", textTransform: "uppercase",
+                      letterSpacing: 1, marginBottom: 6}}>Overhead Allocation</div>
+                    <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6}}>
+                      <span style={{fontSize: 10, color: "#9ca3af"}}>
+                        {jcOhPct === null ? "Auto from P&L" : "Custom rate"}</span>
+                      <button onClick={() => setJcOhPct(jcOhPct === null ? Math.round(tExp / tRev * 1000) / 1000 : null)}
+                        style={{padding: "3px 10px", borderRadius: 4, border: "1px solid #2a2d38",
+                          background: "#0f1117", color: "#f59e0b", fontSize: 9, fontWeight: 600, cursor: "pointer"}}>
+                        {jcOhPct === null ? "Override" : "Auto"}</button>
+                    </div>
+                    {jcOhPct !== null
+                      ? <Sl l="OH Rate" v={jcOhPct} set={setJcOhPct} mn={0.05} mx={0.40} st={0.005} f={fP}
+                          sub={"P&L rate: " + fP(tRev > 0 ? tExp / tRev : 0)}/>
+                      : <div style={{fontSize: 10, color: "#6b7280"}}>
+                          Rate: <strong style={{color: "#e8eaed", fontFamily: M}}>{fP(tRev > 0 ? tExp / tRev : 0)}</strong>
+                          {" "}({fm(tExp)} expenses / {fm(tRev)} revenue)</div>
+                    }
+                  </div>
+
                   {/* Add cost item form */}
                   <div style={{background: "#181b23", borderRadius: 8, padding: 14,
                     border: "1px solid #2a2d38"}}>
@@ -1404,22 +1442,24 @@ function App() {
                         const proj = sales.find(s => s.id === jc.projId);
                         if (!proj) return null;
                         const tc = jc.items.reduce((a, i) => a + i.cost, 0);
-                        const gp = proj.a - tc;
-                        const gpp = proj.a > 0 ? gp / proj.a : 0;
+                        const gpJ = proj.a - tc;
+                        const gpJp = proj.a > 0 ? gpJ / proj.a : 0;
+                        const ohJ = proj.a * ohRate;
+                        const netJ = gpJ - ohJ;
+                        const netJp = proj.a > 0 ? netJ / proj.a : 0;
                         return (
-                          <div key={jc.projId} style={{display: "flex", justifyContent: "space-between",
-                            padding: "6px 0", borderBottom: "1px solid #2a2d38", fontSize: 10,
-                            cursor: "pointer"}} onClick={() => { setJcProj(jc.projId); setJcItems([]); }}>
-                            <span style={{fontWeight: 500}}>{proj.name}</span>
-                            <span style={{fontFamily: M}}>
-                              <span style={{color: "#5b8af5"}}>{fm(proj.a)}</span>
-                              {" → "}
-                              <span style={{color: gp >= 0 ? "#4ade80" : "#f87171"}}>{fm(gp)}</span>
-                              {" "}
-                              <span style={{color: gpp >= 0.26 ? "#4ade80" : gpp >= 0.15 ? "#fbbf24" : "#f87171"}}>
-                                ({fP(gpp)})
-                              </span>
-                            </span>
+                          <div key={jc.projId} style={{padding: "6px 0", borderBottom: "1px solid #2a2d38",
+                            fontSize: 10, cursor: "pointer"}} onClick={() => { setJcProj(jc.projId); setJcItems([]); }}>
+                            <div style={{display: "flex", justifyContent: "space-between"}}>
+                              <span style={{fontWeight: 500}}>{proj.name}</span>
+                              <span style={{fontFamily: M, color: "#5b8af5"}}>{fm(proj.a)}</span>
+                            </div>
+                            <div style={{display: "flex", justifyContent: "space-between", marginTop: 2}}>
+                              <span style={{color: "#6b7280"}}>GP: <span style={{color: gpJp >= 0.26 ? "#4ade80" : gpJp >= 0.15 ? "#fbbf24" : "#f87171",
+                                fontFamily: M}}>{fm(gpJ)} ({fP(gpJp)})</span></span>
+                              <span style={{color: "#6b7280"}}>Net: <span style={{color: netJ >= 0 ? "#4ade80" : "#f87171",
+                                fontFamily: M, fontWeight: 700}}>{fm(netJ)} ({fP(netJp)})</span></span>
+                            </div>
                           </div>
                         );
                       })}
