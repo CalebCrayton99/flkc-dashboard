@@ -322,25 +322,31 @@ function App() {
   const toggleExp = i => setExpanded(p => ({...p, [i]: !p[i]}));
 
   /* ── Budget inputs ─────────────────────────────────────────────── */
-  const [jS, sjS] = useState(1500000);
-  const [dS, sdS] = useState(1000000);
-  const [kS, skS] = useState(750000);
-  const [hS, shS] = useState(750000);
+  const [reps, setReps] = useState([
+    { id:'jordan', name:'Jordan', role:'DSM - Full Year', market:'DSM', base:60000, carType:'annual', carAmt:6000, goal:1500000, threshold:500000, bonus:15000, moActive:12, in401k:true, f401k:1 },
+    { id:'david', name:'David', role:'KC - Year 1', market:'KC', base:60000, carType:'annual', carAmt:6000, goal:1000000, threshold:250000, bonus:0, moActive:12, in401k:true, f401k:0.667 },
+    { id:'kinsey', name:'Kinsey', role:'STL - Starts Apr 20', market:'STL', base:75000, carType:'monthly', carAmt:500, goal:750000, threshold:500000, bonus:0, moActive:8.4, in401k:false, f401k:0 },
+  ]);
+  const [staff, setStaff] = useState([
+    { id:'caleb', name:'Caleb', role:'Owner/GM', type:'salary', base:85000, rate:0, hrsWk:0, bonus:0, in401k:true, f401k:1 },
+    { id:'darlene', name:'Darlene', role:'Admin', type:'salary', base:60000, rate:0, hrsWk:0, bonus:2500, in401k:true, f401k:1 },
+    { id:'mktpt', name:'Marketing PT', role:'PT Marketing', type:'hourly', base:0, rate:25, hrsWk:30, bonus:0, in401k:false, f401k:0 },
+  ]);
+  const [houseGoal, setHouseGoal] = useState(750000);
   const aS = 39476;
   const [gpm, sGpm] = useState(0.26);
-  const [cB, sCB] = useState(85000);
-  const [cBon, sCBon] = useState(0);
-  const [jB, sjB] = useState(60000);
-  const [dB, sdB] = useState(60000);
-  const [kB, skB] = useState(75000);
-  const [drB, sDrB] = useState(60000);
-  const [mH, sMH] = useState(30);
-  const [mR, sMR] = useState(25);
-  const [jBon, sJBon] = useState(15000);
-  const [drBon, sDrBon] = useState(2500);
-  const cr = 0.06, jT = 500000, dT = 250000, kT = 500000;
-  const [kIncr, sKIncr] = useState(0.60);
-  const [stlBl, sStlBl] = useState(300000);
+  const cr = 0.06;
+  const updRep = (id, field, val) => setReps(p => p.map(r => r.id === id ? {...r, [field]: val} : r));
+  const updStaff = (id, field, val) => setStaff(p => p.map(s => s.id === id ? {...s, [field]: val} : s));
+
+  const [showAddRep, setShowAddRep] = useState(false);
+  const [showAddStaff, setShowAddStaff] = useState(false);
+  const [newRep, setNewRep] = useState({name:'', role:'', market:'KC', base:60000, carType:'annual', carAmt:6000, goal:500000, threshold:250000, bonus:0, moActive:12, in401k:false, f401k:0});
+  const [newStaffMem, setNewStaffMem] = useState({name:'', role:'', type:'salary', base:50000, rate:0, hrsWk:0, bonus:0, in401k:false, f401k:0});
+  const addNewRep = () => { if(!newRep.name) return; setReps(p=>[...p,{...newRep,id:'rep-'+Date.now()}]); setNewRep({name:'',role:'',market:'KC',base:60000,carType:'annual',carAmt:6000,goal:500000,threshold:250000,bonus:0,moActive:12,in401k:false,f401k:0}); setShowAddRep(false); };
+  const addNewStaff = () => { if(!newStaffMem.name) return; setStaff(p=>[...p,{...newStaffMem,id:'staff-'+Date.now()}]); setNewStaffMem({name:'',role:'',type:'salary',base:50000,rate:0,hrsWk:0,bonus:0,in401k:false,f401k:0}); setShowAddStaff(false); };
+  const removeRep = id => setReps(p => p.filter(r => r.id !== id));
+  const removeStaffMem = id => setStaff(p => p.filter(s => s.id !== id));
   const [rent, sRent] = useState(20400);
   const [ins, sIns] = useState(22546);
   const [tech, sTech] = useState(44264);
@@ -382,7 +388,6 @@ function App() {
     m: "DSM", rp: "", pg: 0, k9: 0, ls: 0, gf: 0, sp: 0, ms: 0, sf: 0, nt: "", y: 2026});
   const [showPO, setShowPO] = useState(false);
   const [nP, sNP] = useState({project: "", sub: "RCG", amount: 0, sqft: 0, date: "2026-04-07", note: "", year: 2026});
-  const [showKIncr, setShowKIncr] = useState(false);
   const [slFiltRep, setSlFiltRep] = useState("All");
   const [slFiltMkt, setSlFiltMkt] = useState("All");
   const [orderedSf, setOrderedSf] = useState(0);
@@ -540,22 +545,28 @@ function App() {
   };
 
   /* ══ CALCULATIONS ══════════════════════════════════════════════════ */
-  const kMo = 8.4, kPro = kB * (kMo / 12), kCar = 500 * kMo, jCar = 6000, dCar = 6000;
-  const mAnn = mR * mH * 52;
-  const jCm = Math.max(0, jS - jT) * cr;
-  const dCm = Math.max(0, dS - dT) * cr;
-  const kCm = Math.max(0, kS - kT) * cr;
-  const aCm = aS * cr;
-  const tW = cB + jB + dB + kPro + drB + mAnn;
-  const tCar = jCar + dCar + kCar;
-  const tCom = jCm + dCm + kCm + aCm;
-  const tBon = jBon + drBon + cBon;
+  const repC = reps.map(r => {
+    const proBase = r.base * (r.moActive / 12);
+    const carAnn = r.carType === 'monthly' ? r.carAmt * r.moActive : r.carAmt;
+    const comm = Math.max(0, r.goal - r.threshold) * cr;
+    const e401v = r.in401k ? r.base * r.f401k : 0;
+    return {...r, proBase, carAnn, comm, e401v};
+  });
+  const staffC = staff.map(s => {
+    const ann = s.type === 'hourly' ? s.rate * s.hrsWk * 52 : s.base;
+    const e401v = s.in401k ? s.base * s.f401k : 0;
+    return {...s, ann, e401v};
+  });
+  const tW = repC.reduce((a,r)=>a+r.proBase,0) + staffC.reduce((a,s)=>a+s.ann,0);
+  const tCar = repC.reduce((a,r)=>a+r.carAnn,0);
+  const tCom = repC.reduce((a,r)=>a+r.comm,0) + aS * cr;
+  const tBon = reps.reduce((a,r)=>a+r.bonus,0) + staff.reduce((a,s)=>a+s.bonus,0);
   const tComp = tW + tCar + tCom + tBon;
   const prTx = tComp * 0.11;
-  const e401 = cB + jB + drB + (dB * (8 / 12));
-  const c401 = e401 * 0.03;
+  const e401T = repC.reduce((a,r)=>a+r.e401v,0) + staffC.reduce((a,s)=>a+s.e401v,0);
+  const c401 = e401T * 0.03;
   const tPay = tComp + prTx + c401;
-  const tRev = jS + dS + kS + hS + aS;
+  const tRev = reps.reduce((a,r)=>a+r.goal,0) + houseGoal + aS;
   const gp = tRev * gpm;
   const tOH = rent + ins + tech + acct + fcfo + ads + trav + oth + bank + dues + post + txLc + trn + plc;
   const tExp = tPay + tOH;
@@ -596,8 +607,7 @@ function App() {
   const aByR = r => s26.filter(s => s.r === r).reduce((a, s) => a + s.a, 0);
   const aByM = m => s26.filter(s => matchMkt(s.m, m)).reduce((a, s) => a + s.a, 0);
   const sfByM = m => s26.filter(s => matchMkt(s.m, m)).reduce((a, s) => a + (s.sf || 0), 0);
-  const aJ = aByR("Jordan"), aD = aByR("David"), aH = aByR("House");
-  const aK = aByR("Kinsey"), aDk = aByR("Derek");
+  const houseActual = aByR("House");
   const aTot = s26.reduce((a, s) => a + s.a, 0);
   const aSf = s26.reduce((a, s) => a + (s.sf || 0), 0);
   const i26 = instLog.filter(i => i.year === 2026);
@@ -605,7 +615,7 @@ function App() {
   const mN = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   /* Rep card component */
-  function RepCard({nm, rl, base, car, sl, thr, bon = 0, nts}) {
+  function RepCard({nm, rl, base, car, sl, thr, bon = 0, nts, onRemove}) {
     const cm = Math.max(0, sl - thr) * cr;
     const tc = base + car + cm + bon;
     const prt = tc * 0.11;
@@ -616,7 +626,10 @@ function App() {
     const roi = fc > 0 ? gpg / fc : 0;
     return (
       <div style={{background: "#181b23", borderRadius: 10, padding: 16,
-        border: "1px solid " + (net >= 0 ? "#4ade80" : "#f87171"), minWidth: 0, width: "100%"}}>
+        border: "1px solid " + (net >= 0 ? "#4ade80" : "#f87171"), minWidth: 0, width: "100%", position: "relative"}}>
+        {onRemove && <button onClick={onRemove} style={{position: "absolute", top: 6, right: 8,
+          background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 13,
+          fontWeight: 700, lineHeight: 1}}>x</button>}
         <div style={{display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10}}>
           <div>
             <div style={{fontSize: 15, fontWeight: 700}}>{nm}</div>
@@ -691,13 +704,13 @@ function App() {
         {tab === 0 && <Rw>
           <div>
             <Sc t="Revenue Goals (by Rep)">
-              <Sl l="Jordan - DSM" v={jS} set={sjS} mn={0} mx={3e6} st={25000} sub={"Actual: " + fm(aJ)}/>
-              <Sl l="David - KC" v={dS} set={sdS} mn={0} mx={3e6} st={25000}
-                sub={"Actual: " + fm(aD) + " | $250K thr yr1"}/>
-              <Sl l="Kinsey - STL" v={kS} set={skS} mn={0} mx={3e6} st={25000}
-                sub={"Starts Apr 20 | Actual: " + fm(aK)}/>
-              <Sl l="House Account" v={hS} set={shS} mn={0} mx={2e6} st={25000}
-                sub={"Actual: " + fm(aH)}/>
+              {reps.map(r =>
+                <Sl key={r.id} l={r.name + " - " + r.market} v={r.goal}
+                  set={v => updRep(r.id, 'goal', v)} mn={0} mx={3e6} st={25000}
+                  sub={"Actual: " + fm(aByR(r.name)) + (r.moActive < 12 ? " | " + r.moActive + "mo" : "")}/>
+              )}
+              <Sl l="House Account" v={houseGoal} set={setHouseGoal} mn={0} mx={2e6} st={25000}
+                sub={"Actual: " + fm(houseActual)}/>
               <div style={{padding: "8px 12px", background: "#181b23", borderRadius: 7,
                 border: "1px solid #5b8af5", display: "flex", justifyContent: "space-between",
                 fontWeight: 700, fontSize: 13}}>
@@ -706,11 +719,11 @@ function App() {
               </div>
             </Sc>
             <Sc t="Market Goals">
-              <div style={{fontSize: 10, color: "#6b7280", marginBottom: 6}}>
-                DSM=Jordan | KC=David+House KC | STL=Kinsey+House STL</div>
-              <BvA l="DSM" b={jS} a={aByM("DSM")}/>
-              <BvA l="KC" b={dS} a={aByM("KC")}/>
-              <BvA l="STL" b={kS} a={aByM("STL")}/>
+              {(() => {
+                const markets = [...new Set(reps.map(r => r.market))];
+                const mGoal = m => reps.filter(r => r.market === m).reduce((a,r) => a + r.goal, 0);
+                return markets.map(m => <BvA key={m} l={m} b={mGoal(m)} a={aByM(m)}/>);
+              })()}
             </Sc>
             <Sc t="GPM & Tax">
               <Sl l="Blended GPM" v={gpm} set={sGpm} mn={0.15} mx={0.40} st={0.005} f={fP} sub="3-yr ~26%"/>
@@ -780,16 +793,89 @@ function App() {
         {/* ═══ TAB 1: TEAM ═══ */}
         {tab === 1 && <Rw>
           <div>
-            <Sc t="Base Salaries">
-              <Sl l="Caleb" v={cB} set={sCB} mn={70000} mx={140000} st={1000} sub="Market $120K"/>
-              <Fd l="Caleb Year-End Bonus" v={cBon} set={sCBon}/>
-              <Sl l="Jordan" v={jB} set={sjB} mn={40000} mx={100000} st={1000}/>
-              <Sl l="David" v={dB} set={sdB} mn={40000} mx={100000} st={1000}/>
-              <Sl l="Kinsey" v={kB} set={skB} mn={50000} mx={120000} st={1000}
-                sub={"Prorated " + kMo + "mo = " + fm(kPro)}/>
-              <Sl l="Darlene" v={drB} set={sDrB} mn={40000} mx={80000} st={1000}/>
-              <Sl l="Mkt PT hrs" v={mH} set={sMH} mn={0} mx={40} st={5}
-                f={v => v + "h"} sub={"$" + mR + "/hr = " + fm(mAnn) + "/yr"}/>
+            <Sc t="Staff">
+              {staff.map(s => {
+                const sc = staffC.find(x => x.id === s.id);
+                return <div key={s.id} style={{position: "relative", marginBottom: 4}}>
+                  <button onClick={() => removeStaffMem(s.id)} style={{position: "absolute", top: 0, right: 0,
+                    background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 11, zIndex: 1}}>x</button>
+                  {s.type === 'hourly'
+                    ? <Sl l={s.name + " (" + s.role + ") hrs/wk"} v={s.hrsWk} set={v => updStaff(s.id, 'hrsWk', v)}
+                        mn={0} mx={40} st={5} f={v => v + "h"}
+                        sub={"$" + s.rate + "/hr = " + fm(sc ? sc.ann : 0) + "/yr"}/>
+                    : <div>
+                        <Sl l={s.name + " (" + s.role + ")"} v={s.base} set={v => updStaff(s.id, 'base', v)}
+                          mn={30000} mx={200000} st={1000}/>
+                        {s.bonus > 0 || s.id === 'caleb' ? <Fd l={s.name + " Bonus"} v={s.bonus}
+                          set={v => updStaff(s.id, 'bonus', v)}/> : null}
+                      </div>
+                  }
+                </div>;
+              })}
+              <button onClick={() => setShowAddStaff(!showAddStaff)}
+                style={{padding: "5px 12px", borderRadius: 5, background: "#4ade80",
+                  color: "#000", fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer", marginTop: 4}}>+ Add Staff</button>
+              {showAddStaff && <div style={{background: "#181b23", borderRadius: 8, padding: 12,
+                border: "1px solid #4ade80", marginTop: 8}}>
+                <div style={{fontSize: 11, fontWeight: 700, color: "#4ade80", marginBottom: 6}}>New Staff Member</div>
+                <Tx l="Name" v={newStaffMem.name} set={v => setNewStaffMem({...newStaffMem, name: v})}/>
+                <Tx l="Role" v={newStaffMem.role} set={v => setNewStaffMem({...newStaffMem, role: v})}/>
+                <Tx l="Type" v={newStaffMem.type} set={v => setNewStaffMem({...newStaffMem, type: v})} opts={["salary", "hourly"]}/>
+                {newStaffMem.type === 'salary'
+                  ? <Tx l="Base Salary" v={newStaffMem.base} set={v => setNewStaffMem({...newStaffMem, base: v})} type="number"/>
+                  : <><Tx l="Hourly Rate" v={newStaffMem.rate} set={v => setNewStaffMem({...newStaffMem, rate: v})} type="number"/>
+                     <Tx l="Hours/Week" v={newStaffMem.hrsWk} set={v => setNewStaffMem({...newStaffMem, hrsWk: v})} type="number"/></>}
+                <Tx l="Bonus" v={newStaffMem.bonus} set={v => setNewStaffMem({...newStaffMem, bonus: v})} type="number"/>
+                <div style={{display: "flex", gap: 8, alignItems: "center", marginBottom: 6}}>
+                  <label style={{fontSize: 10, color: "#9ca3af"}}><input type="checkbox" checked={newStaffMem.in401k}
+                    onChange={e => setNewStaffMem({...newStaffMem, in401k: e.target.checked})}/> 401k Eligible</label>
+                  {newStaffMem.in401k && <Tx l="401k Fraction" v={newStaffMem.f401k}
+                    set={v => setNewStaffMem({...newStaffMem, f401k: v})} type="number"/>}
+                </div>
+                <button onClick={addNewStaff}
+                  style={{padding: "6px 16px", borderRadius: 5, background: "#4ade80",
+                    color: "#000", fontWeight: 700, border: "none", cursor: "pointer", fontSize: 11}}>Save</button>
+              </div>}
+            </Sc>
+            <Sc t="Rep Compensation">
+              {reps.map(r => {
+                const rc = repC.find(x => x.id === r.id);
+                return <div key={r.id} style={{position: "relative", marginBottom: 4}}>
+                  <button onClick={() => removeRep(r.id)} style={{position: "absolute", top: 0, right: 0,
+                    background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 11, zIndex: 1}}>x</button>
+                  <Sl l={r.name + " Base"} v={r.base} set={v => updRep(r.id, 'base', v)}
+                    mn={30000} mx={150000} st={1000}
+                    sub={r.moActive < 12 ? "Prorated " + r.moActive + "mo = " + fm(rc ? rc.proBase : 0) : undefined}/>
+                </div>;
+              })}
+              <button onClick={() => setShowAddRep(!showAddRep)}
+                style={{padding: "5px 12px", borderRadius: 5, background: "#4ade80",
+                  color: "#000", fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer", marginTop: 4}}>+ Add Sales Rep</button>
+              {showAddRep && <div style={{background: "#181b23", borderRadius: 8, padding: 12,
+                border: "1px solid #4ade80", marginTop: 8}}>
+                <div style={{fontSize: 11, fontWeight: 700, color: "#4ade80", marginBottom: 6}}>New Sales Rep</div>
+                <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 8px"}}>
+                  <Tx l="Name" v={newRep.name} set={v => setNewRep({...newRep, name: v})}/>
+                  <Tx l="Role" v={newRep.role} set={v => setNewRep({...newRep, role: v})}/>
+                  <Tx l="Market" v={newRep.market} set={v => setNewRep({...newRep, market: v})} opts={["KC", "DSM", "STL"]}/>
+                  <Tx l="Base Salary" v={newRep.base} set={v => setNewRep({...newRep, base: v})} type="number"/>
+                  <Tx l="Car Type" v={newRep.carType} set={v => setNewRep({...newRep, carType: v})} opts={["annual", "monthly"]}/>
+                  <Tx l="Car Amount" v={newRep.carAmt} set={v => setNewRep({...newRep, carAmt: v})} type="number"/>
+                  <Tx l="Sales Goal" v={newRep.goal} set={v => setNewRep({...newRep, goal: v})} type="number"/>
+                  <Tx l="Comm Threshold" v={newRep.threshold} set={v => setNewRep({...newRep, threshold: v})} type="number"/>
+                  <Tx l="Bonus" v={newRep.bonus} set={v => setNewRep({...newRep, bonus: v})} type="number"/>
+                  <Tx l="Months Active" v={newRep.moActive} set={v => setNewRep({...newRep, moActive: v})} type="number"/>
+                </div>
+                <div style={{display: "flex", gap: 8, alignItems: "center", marginBottom: 6}}>
+                  <label style={{fontSize: 10, color: "#9ca3af"}}><input type="checkbox" checked={newRep.in401k}
+                    onChange={e => setNewRep({...newRep, in401k: e.target.checked})}/> 401k Eligible</label>
+                  {newRep.in401k && <Tx l="401k Fraction" v={newRep.f401k}
+                    set={v => setNewRep({...newRep, f401k: v})} type="number"/>}
+                </div>
+                <button onClick={addNewRep}
+                  style={{padding: "6px 16px", borderRadius: 5, background: "#4ade80",
+                    color: "#000", fontWeight: 700, border: "none", cursor: "pointer", fontSize: 11}}>Save</button>
+              </div>}
             </Sc>
           </div>
           <div>
@@ -804,16 +890,14 @@ function App() {
               </div>
             </Sc>
             <Sc t="Commission (6% above threshold)">
-              {[{n: "Jordan", s: jS, t: jT, c: jCm},
-                {n: "David", s: dS, t: dT, c: dCm, nt: "$250K yr1"},
-                {n: "Kinsey", s: kS, t: kT, c: kCm}].map(r =>
-                <div key={r.n} style={{display: "flex", justifyContent: "space-between",
+              {repC.map(r =>
+                <div key={r.id} style={{display: "flex", justifyContent: "space-between",
                   padding: "3px 0", borderBottom: "1px solid #2a2d38", fontSize: 10}}>
-                  <span>{r.n}{r.nt ? " (" + r.nt + ")" : ""}</span>
+                  <span>{r.name}{r.role ? " (" + r.role + ")" : ""}</span>
                   <span style={{fontFamily: M}}>
-                    {r.c > 0
-                      ? fm(r.s - r.t) + " x 6% = " + fm(r.c)
-                      : <span style={{color: "#6b7280"}}>Below {fm(r.t)}</span>}
+                    {r.comm > 0
+                      ? fm(r.goal - r.threshold) + " x 6% = " + fm(r.comm)
+                      : <span style={{color: "#6b7280"}}>Below {fm(r.threshold)}</span>}
                   </span>
                 </div>
               )}
@@ -824,44 +908,29 @@ function App() {
         {/* ═══ TAB 2: REPS ═══ */}
         {tab === 2 && <div>
           <div style={{display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 12, marginBottom: 16}}>
-            <RepCard nm="Jordan" rl="DSM - Full Year" base={jB} car={jCar}
-              sl={jS} thr={jT} bon={jBon} nts={"Actual YTD: " + fm(aJ)}/>
-            <RepCard nm="David" rl="KC - Year 1" base={dB} car={dCar}
-              sl={dS} thr={dT} nts={"Actual YTD: " + fm(aD) + " | $250K thr"}/>
-            <div>
-              <RepCard nm="Kinsey" rl="STL - Starts Apr 20" base={kPro} car={kCar}
-                sl={kS} thr={kT} nts={"$75K prorated " + kMo + "mo = " + fm(kPro)}/>
-              <button onClick={() => setShowKIncr(!showKIncr)}
-                style={{width: "100%", marginTop: 6, padding: "6px", borderRadius: 6,
-                  border: "1px solid #2a2d38", background: "#181b23", color: "#5b8af5",
-                  fontSize: 10, fontWeight: 600, cursor: "pointer"}}>
-                {showKIncr ? "Hide" : "Show"} Incremental Analysis</button>
-              {showKIncr && <div style={{marginTop: 6, padding: 12, background: "#181b23",
-                borderRadius: 8, border: "1px solid #2a2d38"}}>
-                <Sl l="% truly new" v={kIncr} set={sKIncr} mn={0} mx={1} st={0.05} f={fP}/>
-                <Sl l="STL baseline w/o rep" v={stlBl} set={sStlBl} mn={50000} mx={500000} st={25000}/>
-                <St l={"Incremental GP (" + fP(kIncr) + ")"} v={fm(kS * kIncr * gpm)} c="#4ade80"/>
-                <St l="Net" v={fm(kS * kIncr * gpm - (kPro + kCar + kCm) * 1.11)}
-                  c={kS * kIncr * gpm - (kPro + kCar + kCm) * 1.11 >= 0 ? "#4ade80" : "#f87171"}/>
-              </div>}
-            </div>
+            {repC.map(r =>
+              <RepCard key={r.id} nm={r.name} rl={r.role} base={r.proBase} car={r.carAnn}
+                sl={r.goal} thr={r.threshold} bon={r.bonus}
+                nts={"Actual YTD: " + fm(aByR(r.name)) + (r.moActive < 12 ? " | " + fm(r.base) + " prorated " + r.moActive + "mo = " + fm(r.proBase) : "")}
+                onRemove={() => removeRep(r.id)}/>
+            )}
           </div>
           <Rw>
             <div>
               <Sc t="Budget vs Actual by Rep">
-                <BvA l="Jordan" b={jS} a={aJ}/>
-                <BvA l="David" b={dS} a={aD}/>
-                <BvA l="Kinsey" b={kS} a={aK}/>
-                <BvA l="House" b={hS} a={aH}/>
+                {reps.map(r =>
+                  <BvA key={r.id} l={r.name} b={r.goal} a={aByR(r.name)}/>
+                )}
+                <BvA l="House" b={houseGoal} a={houseActual}/>
                 <div style={{height: 1, background: "#5b8af5", margin: "6px 0"}}/>
                 <BvA l="TOTAL" b={tRev} a={aTot}/>
               </Sc>
             </div>
             <div>
               <Sc t="House Account">
-                <St l="2026 Goal" v={fm(hS)} c="#5b8af5"/>
-                <St l="Actual YTD" v={fm(aH)} c="#4ade80"/>
-                <St l="GP Generated" v={fm(aH * gpm)} c="#4ade80"/>
+                <St l="2026 Goal" v={fm(houseGoal)} c="#5b8af5"/>
+                <St l="Actual YTD" v={fm(houseActual)} c="#4ade80"/>
+                <St l="GP Generated" v={fm(houseActual * gpm)} c="#4ade80"/>
               </Sc>
             </div>
           </Rw>
@@ -973,7 +1042,7 @@ function App() {
           const projCt = filtered.filter(s => s.pm === "Proj").length;
           const matCt = filtered.filter(s => s.pm === "Mat").length;
           const rpCt = filtered.filter(s => s.rp && s.rp !== "").length;
-          const reps = [...new Set(yrSales.map(s => s.r))].sort();
+          const logReps = [...new Set(yrSales.map(s => s.r))].sort();
           const mkts = [...new Set(yrSales.map(s => s.m))].sort();
           return <div>
           <div style={{display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -990,7 +1059,7 @@ function App() {
                 style={{padding: "4px 8px", borderRadius: 4, border: "1px solid #2a2d38",
                   background: "#1e2130", color: slFiltRep !== "All" ? "#5b8af5" : "#6b7280", fontSize: 10}}>
                 <option value="All">All Reps</option>
-                {reps.map(r => <option key={r} value={r}>{r}</option>)}
+                {logReps.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
               <select value={slFiltMkt} onChange={e => setSlFiltMkt(e.target.value)}
                 style={{padding: "4px 8px", borderRadius: 4, border: "1px solid #2a2d38",
@@ -1050,7 +1119,7 @@ function App() {
               <Tx l="Date" v={nS.d} set={v => sNS({...nS, d: v})} type="date"/>
               <Tx l="Proj/Mat" v={nS.pm} set={v => sNS({...nS, pm: v})} opts={["Proj", "Mat"]}/>
               <Tx l="Rep" v={nS.r} set={v => sNS({...nS, r: v})}
-                opts={["Jordan", "David", "Kinsey", "House", "Austin", "Derek"]}/>
+                opts={[...new Set([...reps.map(r => r.name), "House", ...sales.map(s => s.r)])].sort()}/>
               <Tx l="Market" v={nS.m} set={v => sNS({...nS, m: v})} opts={["KC", "DSM", "STL", "IA"]}/>
               <Tx l="Rep Project" v={nS.rp} set={v => sNS({...nS, rp: v})} opts={["", "AB", "ABC"]}/>
               <Tx l="Sqft" v={nS.sf} set={v => sNS({...nS, sf: v})} type="number"/>
@@ -1062,10 +1131,8 @@ function App() {
           </div>}
 
           {logYr === 2026 && <div style={{marginBottom: 12}}>
-            <BvA l="Jordan" b={jS} a={aJ}/>
-            <BvA l="David" b={dS} a={aD}/>
-            <BvA l="Kinsey" b={kS} a={aK}/>
-            <BvA l="House" b={hS} a={aH}/>
+            {reps.map(r => <BvA key={r.id} l={r.name} b={r.goal} a={aByR(r.name)}/>)}
+            <BvA l="House" b={houseGoal} a={houseActual}/>
             <BvA l="TOTAL" b={tRev} a={aTot}/>
           </div>}
 
@@ -1505,17 +1572,17 @@ function App() {
           <Rw>
             <div>
               <Sc t="Revenue - Goal vs Actual">
-                <BvA l="Jordan (DSM)" b={jS} a={aJ}/>
-                <BvA l="David (KC)" b={dS} a={aD}/>
-                <BvA l="Kinsey (STL)" b={kS} a={aK}/>
-                <BvA l="House" b={hS} a={aH}/>
+                {reps.map(r => <BvA key={r.id} l={r.name + " (" + r.market + ")"} b={r.goal} a={aByR(r.name)}/>)}
+                <BvA l="House" b={houseGoal} a={houseActual}/>
                 <div style={{height: 1, background: "#5b8af5", margin: "6px 0"}}/>
                 <BvA l="TOTAL" b={tRev} a={aTot}/>
               </Sc>
               <Sc t="By Market - Goal vs Actual">
-                <BvA l="DSM" b={jS} a={aByM("DSM")}/>
-                <BvA l="KC" b={dS} a={aByM("KC")}/>
-                <BvA l="STL" b={kS} a={aByM("STL")}/>
+                {(() => {
+                  const markets = [...new Set(reps.map(r => r.market))];
+                  const mGoal = m => reps.filter(r => r.market === m).reduce((a,r) => a + r.goal, 0);
+                  return markets.map(m => <BvA key={m} l={m} b={mGoal(m)} a={aByM(m)}/>);
+                })()}
               </Sc>
               <Sc t="P&L (at Revenue Goal)">
                 <St l="Revenue" v={fm(tRev)} c="#5b8af5"/>
