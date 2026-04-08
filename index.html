@@ -386,6 +386,32 @@ function App() {
   const [slFiltMkt, setSlFiltMkt] = useState("All");
   const [orderedSf, setOrderedSf] = useState(0);
 
+  /* ── Job Costing state ─────────────────────────────────────────── */
+  const [jobCosts, setJobCosts] = useState([]);
+  const [jcProj, setJcProj] = useState("");
+  const [jcItems, setJcItems] = useState([]);
+  const [showJcAdd, setShowJcAdd] = useState(false);
+  const [jcNew, setJcNew] = useState({cat: "Material", desc: "", qty: 1, unit: 0, hrs: 0, rate: 0});
+  const addJcItem = () => {
+    if (!jcNew.desc) return;
+    const cost = jcNew.cat === "Labor" ? jcNew.hrs * jcNew.rate : jcNew.qty * jcNew.unit;
+    setJcItems(p => [...p, {...jcNew, cost, id: Date.now()}]);
+    setJcNew({cat: "Material", desc: "", qty: 1, unit: 0, hrs: 0, rate: 0});
+  };
+  const saveJobCost = () => {
+    if (!jcProj || jcItems.length === 0) return;
+    setJobCosts(p => {
+      const existing = p.findIndex(j => j.projId === jcProj);
+      if (existing >= 0) {
+        const updated = [...p];
+        updated[existing] = {...updated[existing], items: [...updated[existing].items, ...jcItems]};
+        return updated;
+      }
+      return [...p, {projId: jcProj, items: [...jcItems]}];
+    });
+    setJcItems([]);
+  };
+
   /* ── Export helpers ────────────────────────────────────────────── */
   const exportCSV = (rows, headers, filename) => {
     const csv = [headers.join(","), ...rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(","))].join("\n");
@@ -407,7 +433,7 @@ function App() {
     exportCSV(rows, headers, "FLKC_Install_POs_2026.csv");
   };
   const printDashboard = () => {
-    setTab(6);
+    setTab(7);
     setTimeout(() => window.print(), 300);
   };
 
@@ -487,7 +513,7 @@ function App() {
   const aTot = s26.reduce((a, s) => a + s.a, 0);
   const aSf = s26.reduce((a, s) => a + (s.sf || 0), 0);
   const i26 = instLog.filter(i => i.year === 2026);
-  const tabs = ["Overview", "Team", "Reps", "Install", "Sales Log", "Install Log", "Dashboard"];
+  const tabs = ["Overview", "Team", "Reps", "Install", "Sales Log", "Install Log", "Job Costing", "Dashboard"];
   const mN = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   /* Rep card component */
@@ -1109,8 +1135,204 @@ function App() {
               No POs yet. Click + Add PO.</div>}
         </div>}
 
-        {/* ═══ TAB 6: EXECUTIVE DASHBOARD ═══ */}
-        {tab === 6 && <div id="dashboard-print">
+        {/* ═══ TAB 6: JOB COSTING ═══ */}
+        {tab === 6 && (() => {
+          const allProj = sales.filter(s => s.y === 2026);
+          const selProj = allProj.find(s => s.id === jcProj || s.name === jcProj);
+          const projCosts = jobCosts.find(j => j.projId === jcProj);
+          const allItems = [...(projCosts ? projCosts.items : []), ...jcItems];
+          const matItems = allItems.filter(i => i.cat === "Material");
+          const labItems = allItems.filter(i => i.cat === "Labor");
+          const subItems = allItems.filter(i => i.cat === "Subcontractor");
+          const eqItems = allItems.filter(i => i.cat === "Equipment");
+          const othItems = allItems.filter(i => i.cat === "Other");
+          const totalCost = allItems.reduce((a, i) => a + i.cost, 0);
+          const revenue = selProj ? selProj.a : 0;
+          const gpAmt = revenue - totalCost;
+          const gpPct = revenue > 0 ? gpAmt / revenue : 0;
+          const sfTotal = selProj ? (selProj.sf || 0) : 0;
+          const costPsf = sfTotal > 0 ? totalCost / sfTotal : 0;
+
+          const CostTable = ({items, label}) => items.length > 0 ? (
+            <div style={{marginBottom: 12}}>
+              <div style={{fontSize: 10, fontWeight: 700, color: "#5b8af5", textTransform: "uppercase",
+                letterSpacing: 1, marginBottom: 4}}>{label}</div>
+              <table style={{width: "100%", borderCollapse: "collapse", fontSize: 10}}>
+                <thead>
+                  <tr style={{borderBottom: "1px solid #2a2d38"}}>
+                    <th style={{padding: "3px 6px", textAlign: "left", color: "#6b7280", fontSize: 9}}>Description</th>
+                    {label === "Labor"
+                      ? <><th style={{padding: "3px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Hours</th>
+                         <th style={{padding: "3px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Rate</th></>
+                      : <><th style={{padding: "3px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Qty</th>
+                         <th style={{padding: "3px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Unit $</th></>
+                    }
+                    <th style={{padding: "3px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Total</th>
+                    <th style={{width: 24}}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((it, idx) => (
+                    <tr key={it.id || idx} style={{borderBottom: "1px solid #2a2d38"}}>
+                      <td style={{padding: "4px 6px"}}>{it.desc}</td>
+                      <td style={{padding: "4px 6px", textAlign: "right", fontFamily: M}}>
+                        {label === "Labor" ? it.hrs : it.qty}</td>
+                      <td style={{padding: "4px 6px", textAlign: "right", fontFamily: M}}>
+                        {label === "Labor" ? fm(it.rate) : fm(it.unit)}</td>
+                      <td style={{padding: "4px 6px", textAlign: "right", fontFamily: M, fontWeight: 600,
+                        color: "#fbbf24"}}>{fm(it.cost)}</td>
+                      <td style={{padding: "4px 6px"}}>
+                        <button onClick={() => {
+                          if (jcItems.find(j => j.id === it.id)) {
+                            setJcItems(p => p.filter(j => j.id !== it.id));
+                          } else {
+                            setJobCosts(p => p.map(j => j.projId === jcProj
+                              ? {...j, items: j.items.filter(x => x.id !== it.id)} : j));
+                          }
+                        }} style={{background: "none", border: "none", color: "#f87171",
+                          cursor: "pointer", fontSize: 11}}>x</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{display: "flex", justifyContent: "flex-end", padding: "4px 6px",
+                fontFamily: M, fontWeight: 700, fontSize: 11}}>
+                Subtotal: {fm(items.reduce((a, i) => a + i.cost, 0))}
+              </div>
+            </div>
+          ) : null;
+
+          return <div>
+            <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14}}>
+              <h2 style={{margin: 0, fontSize: 14, fontWeight: 700}}>Job Costing</h2>
+              <div style={{fontSize: 10, color: "#6b7280"}}>
+                {jobCosts.length} projects costed</div>
+            </div>
+
+            {/* Project selector */}
+            <div style={{marginBottom: 14}}>
+              <label style={{fontSize: 11, color: "#9ca3af", fontWeight: 500, display: "block", marginBottom: 4}}>
+                Select Project</label>
+              <select value={jcProj} onChange={e => { setJcProj(e.target.value); setJcItems([]); }}
+                style={{width: "100%", maxWidth: 400, padding: "6px 10px", borderRadius: 5,
+                  border: "1px solid #2a2d38", background: "#1e2130", color: "#e8eaed", fontSize: 12}}>
+                <option value="">-- Choose a 2026 project --</option>
+                {allProj.sort((a, b) => a.name > b.name ? 1 : -1).map(s =>
+                  <option key={s.id} value={s.id}>{s.id} - {s.name} ({fm(s.a)})</option>
+                )}
+              </select>
+            </div>
+
+            {selProj && <div>
+              {/* Project header card */}
+              <div style={{display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap"}}>
+                <KP l="Revenue" v={fm(revenue)} c="#5b8af5"/>
+                <KP l="Total Cost" v={fm(totalCost)} c="#fbbf24"/>
+                <KP l="Gross Profit" v={fm(gpAmt)} c={gpAmt >= 0 ? "#4ade80" : "#f87171"}
+                  sub={fP(gpPct) + " margin"}/>
+                <KP l="Net / Sqft" v={sfTotal > 0 ? "$" + costPsf.toFixed(2) : "N/A"}
+                  sub={sfTotal > 0 ? sfTotal.toLocaleString() + " sqft" : "No sqft entered"}/>
+              </div>
+
+              <Rw>
+                <div>
+                  {/* Cost line items */}
+                  <CostTable items={matItems} label="Material"/>
+                  <CostTable items={labItems} label="Labor"/>
+                  <CostTable items={subItems} label="Subcontractor"/>
+                  <CostTable items={eqItems} label="Equipment"/>
+                  <CostTable items={othItems} label="Other"/>
+
+                  {allItems.length > 0 && <div style={{padding: "10px 12px", background: "#181b23",
+                    borderRadius: 8, border: "1px solid " + (gpAmt >= 0 ? "#4ade80" : "#f87171"),
+                    marginBottom: 14}}>
+                    <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 11}}>
+                      <St l="Revenue" v={fm(revenue)} c="#5b8af5"/>
+                      <St l="Total COGS" v={fm(totalCost)} c="#fbbf24"/>
+                      <St l="Gross Profit $" v={fm(gpAmt)} c={gpAmt >= 0 ? "#4ade80" : "#f87171"}/>
+                      <St l="GP %" v={fP(gpPct)} c={gpPct >= 0.26 ? "#4ade80" : gpPct >= 0.15 ? "#fbbf24" : "#f87171"}/>
+                    </div>
+                  </div>}
+
+                  {allItems.length === 0 &&
+                    <div style={{textAlign: "center", padding: 20, color: "#6b7280", fontSize: 11}}>
+                      No cost items yet. Add line items below.</div>}
+                </div>
+
+                <div>
+                  {/* Add cost item form */}
+                  <div style={{background: "#181b23", borderRadius: 8, padding: 14,
+                    border: "1px solid #2a2d38"}}>
+                    <div style={{fontSize: 12, fontWeight: 700, color: "#4ade80", marginBottom: 10}}>
+                      Add Cost Item</div>
+                    <Tx l="Category" v={jcNew.cat} set={v => setJcNew({...jcNew, cat: v})}
+                      opts={["Material", "Labor", "Subcontractor", "Equipment", "Other"]}/>
+                    <Tx l="Description" v={jcNew.desc} set={v => setJcNew({...jcNew, desc: v})}/>
+                    {jcNew.cat === "Labor" ? <>
+                      <Tx l="Hours" v={jcNew.hrs} set={v => setJcNew({...jcNew, hrs: v})} type="number"/>
+                      <Tx l="Rate ($/hr)" v={jcNew.rate} set={v => setJcNew({...jcNew, rate: v})} type="number"/>
+                      <div style={{fontSize: 10, color: "#6b7280", marginBottom: 6}}>
+                        Line total: <strong style={{color: "#e8eaed", fontFamily: M}}>{fm(jcNew.hrs * jcNew.rate)}</strong>
+                      </div>
+                    </> : <>
+                      <Tx l="Qty" v={jcNew.qty} set={v => setJcNew({...jcNew, qty: v})} type="number"/>
+                      <Tx l="Unit Cost ($)" v={jcNew.unit} set={v => setJcNew({...jcNew, unit: v})} type="number"/>
+                      <div style={{fontSize: 10, color: "#6b7280", marginBottom: 6}}>
+                        Line total: <strong style={{color: "#e8eaed", fontFamily: M}}>{fm(jcNew.qty * jcNew.unit)}</strong>
+                      </div>
+                    </>}
+                    <button onClick={addJcItem}
+                      style={{width: "100%", padding: "7px", borderRadius: 5, background: "#4ade80",
+                        color: "#000", fontWeight: 700, border: "none", cursor: "pointer", fontSize: 11,
+                        marginBottom: 8}}>+ Add Line Item</button>
+
+                    {jcItems.length > 0 && <>
+                      <div style={{fontSize: 10, color: "#6b7280", marginBottom: 4}}>
+                        {jcItems.length} unsaved item(s) — {fm(jcItems.reduce((a, i) => a + i.cost, 0))}</div>
+                      <button onClick={saveJobCost}
+                        style={{width: "100%", padding: "7px", borderRadius: 5, background: "#5b8af5",
+                          color: "#fff", fontWeight: 700, border: "none", cursor: "pointer", fontSize: 11}}>
+                        Save to Project</button>
+                    </>}
+                  </div>
+
+                  {/* Job costing summary across all projects */}
+                  {jobCosts.length > 0 && <div style={{marginTop: 14}}>
+                    <Sc t="All Costed Projects">
+                      {jobCosts.map(jc => {
+                        const proj = sales.find(s => s.id === jc.projId);
+                        if (!proj) return null;
+                        const tc = jc.items.reduce((a, i) => a + i.cost, 0);
+                        const gp = proj.a - tc;
+                        const gpp = proj.a > 0 ? gp / proj.a : 0;
+                        return (
+                          <div key={jc.projId} style={{display: "flex", justifyContent: "space-between",
+                            padding: "6px 0", borderBottom: "1px solid #2a2d38", fontSize: 10,
+                            cursor: "pointer"}} onClick={() => { setJcProj(jc.projId); setJcItems([]); }}>
+                            <span style={{fontWeight: 500}}>{proj.name}</span>
+                            <span style={{fontFamily: M}}>
+                              <span style={{color: "#5b8af5"}}>{fm(proj.a)}</span>
+                              {" → "}
+                              <span style={{color: gp >= 0 ? "#4ade80" : "#f87171"}}>{fm(gp)}</span>
+                              {" "}
+                              <span style={{color: gpp >= 0.26 ? "#4ade80" : gpp >= 0.15 ? "#fbbf24" : "#f87171"}}>
+                                ({fP(gpp)})
+                              </span>
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </Sc>
+                  </div>}
+                </div>
+              </Rw>
+            </div>}
+          </div>;
+        })()}
+
+        {/* ═══ TAB 7: EXECUTIVE DASHBOARD ═══ */}
+        {tab === 7 && <div id="dashboard-print">
           <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16}}>
             <div style={{textAlign: "center", flex: 1}}>
               <h2 style={{margin: 0, fontSize: 17, fontWeight: 800}}>2026 Executive Summary</h2>
