@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FLKC 2026 Business Model Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f1117;color:#e8eaed;font-family:'DM Sans',sans-serif}
+input[type=range]{accent-color:#5b8af5}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:#181b23}
+::-webkit-scrollbar-thumb{background:#2a2d38;border-radius:3px}
+@media print {
+  body { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .no-print, button, input[type=range] { display: none !important; }
+  div[style*="borderBottom"] { border-color: #ccc !important; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-type="module">
+const {useState}=React;
+
+/* ══════════════════════════════════════════════════════════════════════
+   SEED DATA — 153 projects (2025 + 2026)
+   ══════════════════════════════════════════════════════════════════════ */
+const SEED=[
+{"id":"25001","name":"Lowenstein Mound Repair","a":9139.93,"d":"2025-01-02","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":7768.75,"sf":0,"nt":"","y":2025},
+{"id":"25002","name":"Richmond Dear Elementary","a":73614,"d":"2025-01-02","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":62826.71,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":3975,"nt":"","y":2025},
+{"id":"25003","name":"Ripke Material","a":847.98,"d":"2025-01-03","pm":"Mat","r":"House","m":"IA","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":720.76,"sf":0,"nt":"","y":2025},
+{"id":"25004","name":"The Hudson","a":28984,"d":"2025-01-10","pm":"Proj","r":"House","m":"KC","rp":"","pg":0,"k9":0,"ls":20444.34,"gf":0,"sp":0,"ms":0,"sf":1905,"nt":"","y":2025},
+{"id":"25005","name":"Painted Woods","a":42370.05,"d":"2025-01-13","pm":"Proj","r":"Derek","m":"IA","rp":"ABC","pg":36013.65,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1185,"nt":"","y":2025},
+{"id":"25006","name":"Ford Manion","a":7689.72,"d":"2025-01-15","pm":"Mat","r":"Larry","m":"StL","rp":"","pg":0,"k9":5816.66,"ls":0,"gf":0,"sp":0,"ms":0,"sf":810,"nt":"","y":2025},
+{"id":"25007","name":"Wentzville ECC BNJ","a":107967.4,"d":"2025-01-20","pm":"Mat","r":"Larry","m":"StL","rp":"","pg":74931.44,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":8325,"nt":"","y":2025},
+{"id":"25008","name":"Kearney Elementary Swings","a":57910.14,"d":"2025-01-20","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":49222.4,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":3150,"nt":"","y":2025},
+{"id":"25009","name":"Greenway Elementary NKC","a":118466.22,"d":"2025-01-13","pm":"Proj","r":"Austin","m":"KC","rp":"","pg":100951.18,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":6660,"nt":"","y":2025},
+{"id":"25010","name":"Matt Bundrant - KOS","a":5197.19,"d":"2025-02-11","pm":"Mat","r":"House","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":4417.5,"sp":0,"ms":0,"sf":375,"nt":"","y":2025},
+{"id":"25011","name":"Focal Pointe","a":1125.5,"d":"2025-02-14","pm":"Mat","r":"House","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":955.76,"sf":0,"nt":"","y":2025},
+{"id":"25012","name":"Des Moines Airport","a":5499.73,"d":"2025-02-17","pm":"Proj","r":"Derek","m":"IA","rp":"","pg":0,"k9":3933.56,"ls":0,"gf":0,"sp":0,"ms":0,"sf":75,"nt":"","y":2025},
+{"id":"25013","name":"U of I Health Sciences Rooftop","a":68112,"d":"2025-02-17","pm":"Proj","r":"Derek","m":"IA","rp":"","pg":0,"k9":0,"ls":47034.84,"gf":0,"sp":0,"ms":0,"sf":3660,"nt":"","y":2025},
+{"id":"25014","name":"Scotts Bluff ESU13","a":77657.35,"d":"2025-02-21","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":67165.06,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":3915,"nt":"","y":2025},
+{"id":"25015","name":"Eudora ELC Phase 2","a":110119.83,"d":"2025-02-24","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":93578.11,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":4410,"nt":"","y":2025},
+{"id":"25016","name":"Trinity Lutheran","a":101376.6,"d":"2025-03-03","pm":"Proj","r":"Joey","m":"StL","rp":"ABC","pg":86167.96,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":6660,"nt":"","y":2025},
+{"id":"25017","name":"Kearney Dogwood Elementary","a":39309.5,"d":"2025-03-03","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":33412.25,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1725,"nt":"","y":2025},
+{"id":"25018","name":"Kearney Hawthorne Elementary","a":106674.36,"d":"2025-03-03","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":90670.95,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":4980,"nt":"","y":2025},
+{"id":"25019","name":"Kearney Kearney Elementary","a":61565.37,"d":"2025-03-03","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":52329.26,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":3210,"nt":"","y":2025},
+{"id":"25020","name":"Wash U Tab Early Childhood","a":52596.96,"d":"2025-03-03","pm":"Mat","r":"Larry","m":"StL","rp":"","pg":43830.8,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":8100,"nt":"","y":2025},
+{"id":"25021","name":"Focal Pointe - install supply","a":1404.83,"d":"2025-03-07","pm":"Mat","r":"House","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":1192.96,"sf":0,"nt":"","y":2025},
+{"id":"25022","name":"Kearney Southview Elementary","a":29700.04,"d":"2025-03-07","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":25244.39,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1485,"nt":"","y":2025},
+{"id":"25023","name":"St. Clair Animal Facility","a":74276.32,"d":"2025-03-18","pm":"Proj","r":"Larry","m":"StL","rp":"","pg":0,"k9":54832.88,"ls":0,"gf":0,"sp":0,"ms":0,"sf":4440,"nt":"","y":2025},
+{"id":"25024","name":"Reflections Apts","a":35391,"d":"2025-03-18","pm":"Proj","r":"Austin","m":"KC","rp":"","pg":0,"k9":0,"ls":8037.54,"gf":0,"sp":16177.44,"ms":0,"sf":2370,"nt":"","y":2025},
+{"id":"25025","name":"Summit Apts","a":43269,"d":"2025-03-19","pm":"Proj","r":"Austin","m":"KC","rp":"","pg":0,"k9":10315.32,"ls":0,"gf":0,"sp":9689.02,"ms":0,"sf":1755,"nt":"","y":2025},
+{"id":"25026","name":"Rothermich Gym Turf","a":4045.34,"d":"2025-03-20","pm":"Proj","r":"Joey","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":2721,"ms":0,"sf":100,"nt":"","y":2025},
+{"id":"25027","name":"Will Andersen Landman","a":3591.69,"d":"2025-03-25","pm":"Mat","r":"Joey","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":2626.8,"sp":0,"ms":0,"sf":420,"nt":"","y":2025},
+{"id":"25029","name":"Jackie Kuhn Backyard","a":23807.27,"d":"2025-03-27","pm":"Mat","r":"Austin","m":"KC","rp":"","pg":0,"k9":0,"ls":22875.22,"gf":0,"sp":0,"ms":0,"sf":2000,"nt":"","y":2025},
+{"id":"25030","name":"Sean Miller Residence","a":10562.06,"d":"2025-03-27","pm":"Mat","r":"Larry","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":6858.48,"sp":0,"ms":0,"sf":1260,"nt":"","y":2025},
+{"id":"25031","name":"Gladstone Woofs","a":612.5,"d":"2025-03-31","pm":"Proj","r":"Larry","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":490,"sf":0,"nt":"","y":2025},
+{"id":"25032","name":"SW 1st St. Bridge","a":191073.36,"d":"2025-04-04","pm":"Proj","r":"Jordan","m":"IA","rp":"","pg":127808.96,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":3825,"nt":"","y":2025},
+{"id":"25033","name":"Davidson Elementary","a":27403.32,"d":"2025-04-07","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":23292.24,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1320,"nt":"","y":2025},
+{"id":"25034","name":"Bell Prairie Elementary","a":27405.35,"d":"2025-04-07","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":23293.95,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":375,"nt":"","y":2025},
+{"id":"25035","name":"Putting Green - Dana","a":2931.33,"d":"2025-04-07","pm":"Mat","r":"Larry","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":1988.5,"sp":0,"ms":0,"sf":375,"nt":"","y":2025},
+{"id":"25036","name":"Wentzville ECC - Playground Consultant","a":1426.05,"d":"2025-04-07","pm":"Proj","r":"Larry","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":982.5,"sf":0,"nt":"","y":2025},
+{"id":"25037","name":"No Leash Needed Ellis","a":1125,"d":"2025-04-09","pm":"Proj","r":"Larry","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":900,"sf":0,"nt":"","y":2025},
+{"id":"25038","name":"APA - Hanley Front Area","a":9193.45,"d":"2025-04-09","pm":"Proj","r":"Larry","m":"StL","rp":"","pg":0,"k9":6747.48,"ls":0,"gf":0,"sp":0,"ms":0,"sf":555,"nt":"","y":2025},
+{"id":"25039","name":"Ripke Material","a":2368.48,"d":"2025-04-11","pm":"Mat","r":"House","m":"IA","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":2368.48,"sf":0,"nt":"","y":2025},
+{"id":"25040","name":"Tyler Moser Backyard - Remnant","a":7405.68,"d":"2025-04-11","pm":"Mat","r":"Austin","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":5172.48,"sf":0,"nt":"","y":2025},
+{"id":"25041","name":"Kindred Supplies","a":1411.52,"d":"2025-04-15","pm":"Mat","r":"House","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":1411.52,"sf":0,"nt":"","y":2025},
+{"id":"25042","name":"Caleb Miller","a":7485.74,"d":"2025-04-15","pm":"Mat","r":"Jordan","m":"IA","rp":"","pg":0,"k9":5271.64,"ls":0,"gf":0,"sp":0,"ms":0,"sf":825,"nt":"","y":2025},
+{"id":"25043","name":"Church of the Resurrection","a":17466.96,"d":"2025-04-16","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":14884.5,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1080,"nt":"","y":2025},
+{"id":"25044","name":"Jackson Elementary","a":1687.5,"d":"2025-04-23","pm":"Proj","r":"House","m":"IA","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":1350,"sf":0,"nt":"","y":2025},
+{"id":"25045","name":"Jones Advisory Group","a":6558.76,"d":"2025-04-25","pm":"Mat","r":"Austin","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":5574.8,"sp":0,"ms":0,"sf":885,"nt":"","y":2025},
+{"id":"25046","name":"Mission Hills Country Club","a":13289.57,"d":"2025-04-30","pm":"Proj","r":"Austin","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":9301.5,"sp":0,"ms":0,"sf":855,"nt":"","y":2025},
+{"id":"25047","name":"Boonville Animal Shelter","a":35108.3,"d":"2025-05-02","pm":"Proj","r":"Austin","m":"KC","rp":"","pg":0,"k9":25077.36,"ls":0,"gf":0,"sp":0,"ms":0,"sf":2460,"nt":"","y":2025},
+{"id":"25048","name":"Church of the Nativity","a":14418.1,"d":"2025-05-06","pm":"Proj","r":"Austin","m":"KC","rp":"","pg":10153.58,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":840,"nt":"","y":2025},
+{"id":"25049","name":"KU Football Stadium","a":2108.4,"d":"2025-05-09","pm":"Mat","r":"Austin","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":982,"ms":0,"sf":150,"nt":"","y":2025},
+{"id":"25050","name":"Clive IA Tracy Stein","a":16434.93,"d":"2025-05-13","pm":"Proj","r":"Jordan","m":"IA","rp":"","pg":13695.77,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1065,"nt":"","y":2025},
+{"id":"25051","name":"Lake Park IA Harris Park Playmound","a":5555.86,"d":"2025-05-15","pm":"Proj","r":"Jordan","m":"IA","rp":"","pg":4424.5,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":150,"nt":"","y":2025},
+{"id":"25052","name":"Kyle Kryger Putting Material - KOS","a":2466.54,"d":"2025-05-16","pm":"Mat","r":"House","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":2096.5,"sp":0,"ms":0,"sf":330,"nt":"","y":2025},
+{"id":"25053","name":"Nicki Alexander","a":20448.23,"d":"2025-04-16","pm":"Mat","r":"Larry","m":"StL","rp":"","pg":0,"k9":14102.22,"ls":0,"gf":0,"sp":0,"ms":0,"sf":2295,"nt":"sales tax on freight not collected, Illinois","y":2025},
+{"id":"25054","name":"Blue Bird Dog Park - BNJ","a":35819.4,"d":"2025-04-16","pm":"Mat","r":"Joey","m":"StL","rp":"","pg":0,"k9":29849.5,"ls":0,"gf":0,"sp":0,"ms":0,"sf":5250,"nt":"","y":2025},
+{"id":"25055","name":"Xtreme Green-Playmound","a":11864.47,"d":"2025-04-22","pm":"Mat","r":"Larry","m":"StL","rp":"","pg":1717.2,"k9":0,"ls":0,"gf":0,"sp":0,"ms":4537,"sf":360,"nt":"","y":2025},
+{"id":"25056","name":"Focal Pointe Bear Boards","a":1028.93,"d":"2025-04-25","pm":"Mat","r":"House","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":609.04,"sf":0,"nt":"","y":2025},
+{"id":"25057","name":"Mitchell Park - ABcreative","a":76426.02,"d":"2025-04-30","pm":"Proj","r":"Larry","m":"StL","rp":"ABC","pg":64899.81,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":4275,"nt":"","y":2025},
+{"id":"25058","name":"Webster Groves Aquatic Park","a":80043.72,"d":"2025-05-01","pm":"Mat","r":"Joey","m":"StL","rp":"","pg":0,"k9":66703.1,"ls":0,"gf":0,"sp":0,"ms":0,"sf":12330,"nt":"","y":2025},
+{"id":"25059","name":"Jinnie Tkach - Putting Area","a":3609.07,"d":"2025-05-09","pm":"Mat","r":"Larry","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":2343.55,"sp":0,"ms":0,"sf":300,"nt":"","y":2025},
+{"id":"25060","name":"Walter Ambrose Family","a":58005.84,"d":"2025-05-12","pm":"Mat","r":"Larry","m":"StL","rp":"","pg":48338.2,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":6030,"nt":"","y":2025},
+{"id":"25061","name":"Pattonville Schools - BNJ Material","a":35745.72,"d":"2025-05-14","pm":"Mat","r":"Larry","m":"StL","rp":"","pg":23665,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":2160,"nt":"","y":2025},
+{"id":"25062","name":"Sean O'Sullivan - Material - KOS","a":20500.14,"d":"2025-05-16","pm":"Mat","r":"House","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":17083.45,"sp":0,"ms":0,"sf":2385,"nt":"","y":2025},
+{"id":"25063","name":"Ranken Jordan","a":6586.67,"d":"2025-05-21","pm":"Proj","r":"Larry","m":"StL","rp":"","pg":4480.95,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":660,"nt":"","y":2025},
+{"id":"25064","name":"Doug Koons","a":15446.64,"d":"2025-05-19","pm":"Proj","r":"Jordan","m":"IA","rp":"","pg":0,"k9":11851.61,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1170,"nt":"","y":2025},
+{"id":"25065","name":"Focal Pointe Bear Boards","a":1668.39,"d":"2025-05-22","pm":"Mat","r":"House","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":1400.12,"sf":0,"nt":"","y":2025},
+{"id":"25066","name":"Sheldon IA Adult Fitness","a":14504.89,"d":"2025-05-23","pm":"Proj","r":"Jordan","m":"IA","rp":"ABC","pg":12328.84,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":990,"nt":"","y":2025},
+{"id":"25067","name":"Charlena Peppes Landscape Material - KOS","a":3343.68,"d":"2025-05-23","pm":"Mat","r":"House","m":"KC","rp":"","pg":0,"k9":0,"ls":2786.4,"gf":0,"sp":0,"ms":0,"sf":480,"nt":"","y":2025},
+{"id":"25069","name":"Focal Pointe - Seam Tape","a":1125.5,"d":"2025-05-28","pm":"Mat","r":"House","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":955.76,"sf":0,"nt":"","y":2025},
+{"id":"25070","name":"Todd Around Pool Material Only","a":480,"d":"2025-05-29","pm":"Mat","r":"Austin","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":240,"sf":0,"nt":"","y":2025},
+{"id":"25071","name":"Kindred Tape","a":4281.69,"d":"2025-05-29","pm":"Mat","r":"House","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":4281.69,"sf":0,"nt":"","y":2025},
+{"id":"25072","name":"Oelwein IA Depot Park - Repair","a":1830,"d":"2025-06-05","pm":"Proj","r":"House","m":"IA","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":1500,"sf":0,"nt":"","y":2025},
+{"id":"25073","name":"St. Thomas Moore -FLSCK Reciprocity","a":1923.75,"d":"2025-06-13","pm":"Proj","r":"House","m":"KC","rp":"","pg":1923.75,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":2565,"nt":"","y":2025},
+{"id":"25074","name":"Kiddi Kollege - FLSCK Reciprocity","a":810,"d":"2025-06-13","pm":"Proj","r":"House","m":"KC","rp":"","pg":810,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1080,"nt":"","y":2025},
+{"id":"25075","name":"High Grove Elementary - FLSCK Reciprocity","a":1260,"d":"2025-06-13","pm":"Proj","r":"House","m":"KC","rp":"","pg":1260,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1680,"nt":"","y":2025},
+{"id":"25076","name":"Jeremy Cohorst Materials Only - KOS","a":5516.76,"d":"2025-06-13","pm":"Mat","r":"House","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":4597.3,"sp":0,"ms":0,"sf":690,"nt":"","y":2025},
+{"id":"25077","name":"Dogtopia-Lake St Louis","a":25176.83,"d":"2025-06-13","pm":"Proj","r":"House","m":"StL","rp":"","pg":0,"k9":15021.62,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1530,"nt":"","y":2025},
+{"id":"25078","name":"Cooper Residence","a":2681.12,"d":"2025-06-20","pm":"Mat","r":"House","m":"KC","rp":"","pg":0,"k9":2331.12,"ls":0,"gf":0,"sp":0,"ms":0,"sf":600,"nt":"","y":2025},
+{"id":"25079","name":"Kindred - Glue Supplies","a":518.47,"d":"2025-07-01","pm":"Mat","r":"House","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":414.77,"sf":0,"nt":"","y":2025},
+{"id":"25080","name":"Fat Cat's Dog Boarding","a":24241.14,"d":"2025-07-01","pm":"Proj","r":"Austin","m":"KC","rp":"","pg":0,"k9":16662.8,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1380,"nt":"","y":2025},
+{"id":"25081","name":"Oxford, Ia CCA Elementary","a":84536.13,"d":"2025-07-01","pm":"Proj","r":"Jordan","m":"IA","rp":"","pg":72760.26,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":5355,"nt":"","y":2025},
+{"id":"25082","name":"Small Sliders - Ellisville","a":8897,"d":"2025-07-08","pm":"Mat","r":"House","m":"StL","rp":"","pg":0,"k9":5563.28,"ls":0,"gf":0,"sp":0,"ms":0,"sf":690,"nt":"","y":2025},
+{"id":"25083","name":"Behavioral Health Allies Playground","a":66493.14,"d":"2025-07-10","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":55410.95,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":3600,"nt":"","y":2025},
+{"id":"25084","name":"Lionsgate HOA","a":54490.57,"d":"2025-07-11","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":46315.81,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":3555,"nt":"","y":2025},
+{"id":"25085","name":"Caroline French Backyard","a":12675.02,"d":"2025-07-16","pm":"Proj","r":"Austin","m":"KC","rp":"","pg":0,"k9":0,"ls":8825.12,"gf":0,"sp":0,"ms":0,"sf":690,"nt":"","y":2025},
+{"id":"25086","name":"Kindred - Seam Tape","a":4460.68,"d":"2025-07-24","pm":"Mat","r":"House","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":3568.54,"sf":0,"nt":"","y":2025},
+{"id":"25087","name":"Urbandale IA Cresent Building Plaza","a":30074.73,"d":"2025-07-24","pm":"Proj","r":"Derek","m":"IA","rp":"","pg":0,"k9":0,"ls":23065.85,"gf":0,"sp":0,"ms":0,"sf":2281,"nt":"","y":2025},
+{"id":"25088","name":"BNJ-New Reach ECC Facility","a":1970.34,"d":"2025-07-25","pm":"Mat","r":"House","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":1279.44,"sf":0,"nt":"","y":2025},
+{"id":"25089","name":"Pleasant Hill Animal Shelter","a":25949.42,"d":"2025-07-30","pm":"Proj","r":"Austin","m":"KC","rp":"","pg":0,"k9":18274.24,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1320,"nt":"","y":2025},
+{"id":"25090","name":"Aplix Seam Tape - BNJ","a":3021.6,"d":"2025-08-01","pm":"Mat","r":"House","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":2417.28,"sf":0,"nt":"","y":2025},
+{"id":"25091","name":"Aplix Tape - Focal Pointe","a":2477.28,"d":"2025-08-04","pm":"Mat","r":"House","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":2064.4,"sf":0,"nt":"","y":2025},
+{"id":"25092","name":"Austin Redd","a":3004.44,"d":"2025-08-05","pm":"Mat","r":"Joey","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":2021.25,"sp":0,"ms":0,"sf":375,"nt":"","y":2025},
+{"id":"25093","name":"Tim Rypma","a":24344.38,"d":"2025-08-07","pm":"Proj","r":"Derek","m":"IA","rp":"","pg":0,"k9":9342,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1800,"nt":"","y":2025},
+{"id":"25095","name":"Little Leaps of Faith Daycare","a":13534.6,"d":"2025-08-07","pm":"Proj","r":"Jordan","m":"IA","rp":"","pg":4006,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":840,"nt":"","y":2025},
+{"id":"25096","name":"Focal Pointe - River City Material","a":4231.06,"d":"2025-08-13","pm":"Mat","r":"House","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":3525.88,"sf":0,"nt":"","y":2025},
+{"id":"25097","name":"Crumb Rubber Jackie Kuhn","a":144,"d":"2025-08-19","pm":"Mat","r":"Austin","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":144,"sf":0,"nt":"","y":2025},
+{"id":"25098","name":"K9Grass area by Shed","a":420,"d":"2025-08-19","pm":"Mat","r":"Austin","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":420,"sf":0,"nt":"","y":2025},
+{"id":"25099","name":"S Des Moines LA Vet Ctr","a":30941.5,"d":"2025-08-25","pm":"Proj","r":"Jordan","m":"IA","rp":"","pg":0,"k9":23630.75,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1815,"nt":"","y":2025},
+{"id":"25100","name":"Elevate Landscaping","a":3368.77,"d":"2025-08-27","pm":"Mat","r":"Larry","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":2588.25,"sp":0,"ms":0,"sf":405,"nt":"","y":2025},
+{"id":"25101","name":"Gary Julius - K9 Area Material","a":2099.72,"d":"2025-09-04","pm":"Mat","r":"Larry","m":"StL","rp":"","pg":0,"k9":1106.7,"ls":0,"gf":0,"sp":0,"ms":0,"sf":210,"nt":"","y":2025},
+{"id":"25102","name":"Sky On Main New Dog Park","a":22718.99,"d":"2025-09-05","pm":"Proj","r":"Austin","m":"KC","rp":"","pg":0,"k9":15929.18,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1200,"nt":"","y":2025},
+{"id":"25103","name":"Jenkins Residence","a":9899.19,"d":"2025-09-11","pm":"Proj","r":"Larry","m":"StL","rp":"","pg":0,"k9":0,"ls":6895.81,"gf":0,"sp":0,"ms":0,"sf":645,"nt":"","y":2025},
+{"id":"25104","name":"Ashawa Park GLSCK Reciprocity","a":798.75,"d":"2025-09-12","pm":"Mat","r":"House","m":"KC","rp":"","pg":798.75,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1065,"nt":"","y":2025},
+{"id":"25105","name":"Bonan Residence","a":7308.84,"d":"2025-09-18","pm":"Mat","r":"Larry","m":"StL","rp":"","pg":0,"k9":4999.2,"ls":0,"gf":0,"sp":0,"ms":0,"sf":660,"nt":"","y":2025},
+{"id":"25106","name":"Kyle Thiessen Residence","a":26750.55,"d":"2025-09-19","pm":"Proj","r":"Derek","m":"IA","rp":"","pg":0,"k9":0,"ls":0,"gf":22144.63,"sp":0,"ms":0,"sf":2565,"nt":"","y":2025},
+{"id":"25107","name":"Ascent Apartments","a":62097.56,"d":"2025-09-19","pm":"Proj","r":"Austin","m":"KC","rp":"","pg":0,"k9":42647.04,"ls":0,"gf":0,"sp":0,"ms":0,"sf":3030,"nt":"","y":2025},
+{"id":"25109","name":"River Forest Park","a":13423.37,"d":"2025-10-03","pm":"Mat","r":"Austin","m":"KC","rp":"","pg":10420.16,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1080,"nt":"","y":2025},
+{"id":"25110","name":"Family Pet Veterinary Center","a":6031.79,"d":"2025-09-29","pm":"Proj","r":"Derek","m":"IA","rp":"","pg":0,"k9":4266.91,"ls":0,"gf":0,"sp":0,"ms":0,"sf":255,"nt":"","y":2025},
+{"id":"25111","name":"Bark Park Repair","a":1800,"d":"2025-10-01","pm":"Proj","r":"Jordan","m":"IA","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":1500,"sf":0,"nt":"","y":2025},
+{"id":"25112","name":"Small Sliders - St Peters","a":11423,"d":"2025-10-06","pm":"Proj","r":"Joey","m":"StL","rp":"","pg":0,"k9":8037.9,"ls":0,"gf":0,"sp":0,"ms":0,"sf":705,"nt":"","y":2025},
+{"id":"25113","name":"Forest City Elementary Repair","a":6172.19,"d":"2025-10-06","pm":"Proj","r":"Jordan","m":"IA","rp":"ABC","pg":5153.78,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":0,"nt":"","y":2025},
+{"id":"25114","name":"Des Moines, IA Grandview Child Dev","a":93095.51,"d":"2025-10-08","pm":"Proj","r":"Jordan","m":"IA","rp":"ABC","pg":79129.21,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":6135,"nt":"","y":2025},
+{"id":"25115","name":"Petsuites, Shawnee","a":1417.14,"d":"2025-10-09","pm":"Proj","r":"Austin","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":992,"sf":0,"nt":"","y":2025},
+{"id":"25116","name":"Clayton Dowd Residence","a":15912.4,"d":"2025-10-14","pm":"Proj","r":"Joey","m":"StL","rp":"","pg":0,"k9":11925.35,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1065,"nt":"","y":2025},
+{"id":"25117","name":"Ripke- Supplies","a":1388.35,"d":"2025-10-23","pm":"Mat","r":"House","m":"IA","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":1156.96,"sf":0,"nt":"","y":2025},
+{"id":"25118","name":"Fryar Residence","a":14283.86,"d":"2025-10-24","pm":"Proj","r":"Jordan","m":"IA","rp":"","pg":10785.34,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":870,"nt":"","y":2025},
+{"id":"25119","name":"O'Fallon Carshield PG Materials","a":30394.75,"d":"2025-10-24","pm":"Mat","r":"Joey","m":"StL","rp":"","pg":20698.43,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":2715,"nt":"","y":2025},
+{"id":"25120","name":"Papillion Park Renovation","a":181053.5,"d":"2025-10-27","pm":"Proj","r":"Jordan","m":"IA","rp":"","pg":0,"k9":137585.6,"ls":0,"gf":0,"sp":0,"ms":0,"sf":15345,"nt":"","y":2025},
+{"id":"25121","name":"Ripke - Supplies - Grandview","a":1148.35,"d":"2025-10-29","pm":"Mat","r":"House","m":"IA","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":956.96,"sf":0,"nt":"","y":2025},
+{"id":"25122","name":"Ripke Supplies for Behavioral Health","a":543.46,"d":"2025-10-29","pm":"Mat","r":"House","m":"IA","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":452.88,"sf":0,"nt":"","y":2025},
+{"id":"25123","name":"Mahmud Residence","a":9705.77,"d":"2025-11-03","pm":"Proj","r":"Larry","m":"StL","rp":"","pg":0,"k9":0,"ls":0,"gf":6688.63,"sp":0,"ms":0,"sf":570,"nt":"","y":2025},
+{"id":"25124","name":"Penny Hendel Residence","a":4696.74,"d":"2025-11-03","pm":"Mat","r":"Larry","m":"StL","rp":"","pg":0,"k9":3131.16,"ls":0,"gf":0,"sp":0,"ms":0,"sf":420,"nt":"","y":2025},
+{"id":"25126","name":"Spirit Lake Phase 2","a":56746.92,"d":"2025-11-21","pm":"Proj","r":"Jordan","m":"IA","rp":"ABC","pg":47900.91,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":5355,"nt":"","y":2025},
+{"id":"25127","name":"Wilkinson Residence","a":28174.11,"d":"2025-11-21","pm":"Proj","r":"Larry","m":"StL","rp":"","pg":0,"k9":21695.19,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1920,"nt":"","y":2025},
+{"id":"25128","name":"Blue Bird Dog Park - BNJ","a":61267.53,"d":"2025-11-25","pm":"Mat","r":"Larry","m":"StL","rp":"","pg":0,"k9":45950.65,"ls":0,"gf":0,"sp":0,"ms":0,"sf":7995,"nt":"","y":2025},
+{"id":"25129","name":"Des Moines, IA Dog Park Barn Renovation","a":155367.44,"d":"2025-11-25","pm":"Proj","r":"Jordan","m":"IA","rp":"","pg":0,"k9":118537.5,"ls":0,"gf":0,"sp":0,"ms":0,"sf":10995,"nt":"","y":2025},
+{"id":"25130","name":"Hyperion Country Club","a":31300.66,"d":"2025-12-01","pm":"Mat","r":"Derek","m":"IA","rp":"","pg":23536.99,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":3915,"nt":"","y":2025},
+{"id":"25131","name":"Cottonwood Pet Resort","a":82192.5,"d":"2025-12-03","pm":"Proj","r":"Jordan","m":"IA","rp":"","pg":0,"k9":60505.93,"ls":0,"gf":0,"sp":0,"ms":0,"sf":6030,"nt":"","y":2025},
+{"id":"25132","name":"NKC ECC Repairs and New Areas","a":3938.98,"d":"2025-12-09","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":3363.05,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":195,"nt":"","y":2025},
+{"id":"25133","name":"Ottumwa, IA Riverfront Park","a":53854.46,"d":"2025-12-11","pm":"Proj","r":"Jordan","m":"IA","rp":"ABC","pg":45047.43,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":225,"nt":"","y":2025},
+{"id":"25135","name":"Gilbert Elementary 5-12","a":120727.28,"d":"2025-12-23","pm":"Proj","r":"Jordan","m":"IA","rp":"ABC","pg":100807.67,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":8250,"nt":"Will be ordered in 2026","y":2025},
+{"id":"25136","name":"Gilbert Elementary 2-5 Area","a":41925.27,"d":"2025-12-23","pm":"Proj","r":"Jordan","m":"IA","rp":"ABC","pg":40604.64,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":3060,"nt":"","y":2025},
+{"id":"26001","name":"Boys and Girls Club Phase 2","a":68241.63,"d":"2026-01-06","pm":"Proj","r":"House","m":"KC","rp":"AB","pg":68241.63,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":5010,"nt":"Was not able to get to AB in time","y":2026},
+{"id":"26002","name":"Schroeder Park Renovation","a":40634,"d":"2026-01-15","pm":"Proj","r":"House","m":"STL","rp":"","pg":40634,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":2475,"nt":"","y":2026},
+{"id":"25134","name":"Thomson Additional Play Area","a":57253.31,"d":"2026-01-15","pm":"Proj","r":"House","m":"KC","rp":"AB","pg":57253.31,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":2640,"nt":"Ordered in 2026","y":2026},
+{"id":"26003","name":"Mission Vet Emergency","a":23560,"d":"2026-01-15","pm":"Proj","r":"Austin","m":"KC","rp":"","pg":0,"k9":23560,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1260,"nt":"","y":2026},
+{"id":"26004","name":"Bailey Backyard","a":37489.12,"d":"2026-01-16","pm":"Proj","r":"David","m":"KC","rp":"","pg":0,"k9":37489.12,"ls":0,"gf":0,"sp":0,"ms":0,"sf":2850,"nt":"","y":2026},
+{"id":"26005","name":"Gilbert Elementary","a":122758.86,"d":"2026-01-27","pm":"Proj","r":"Jordan","m":"DSM","rp":"AB","pg":122758.86,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":8250,"nt":"","y":2026},
+{"id":"26006","name":"Gilbert ECC","a":44114.98,"d":"2026-01-27","pm":"Proj","r":"Jordan","m":"DSM","rp":"AB","pg":44114.98,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":3060,"nt":"","y":2026},
+{"id":"26007","name":"Cico Park Material Only","a":53368.84,"d":"2026-02-11","pm":"Mat","r":"House","m":"KC","rp":"AB","pg":53368.84,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":4650,"nt":"","y":2026},
+{"id":"26008","name":"Evren Apartments","a":15916.07,"d":"2026-02-05","pm":"Proj","r":"Austin","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":15916.07,"sp":0,"ms":0,"sf":500,"nt":"","y":2026},
+{"id":"26009","name":"Rainbow of the Heartland","a":12830.91,"d":"2026-02-12","pm":"Mat","r":"Derek","m":"DSM","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":12830.91,"sf":0,"nt":"Mounds","y":2026},
+{"id":"26010","name":"Grimes IA DSM Christian ECC","a":103672,"d":"2026-02-12","pm":"Proj","r":"Jordan","m":"DSM","rp":"AB","pg":103672,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":5700,"nt":"","y":2026},
+{"id":"26011","name":"Mary Castro Mound","a":7035,"d":"2026-02-16","pm":"Mat","r":"David","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":7035,"sf":0,"nt":"Mounds","y":2026},
+{"id":"Pending","name":"Waukee Play Area","a":104962.34,"d":"2026-02-19","pm":"Proj","r":"Jordan","m":"DSM","rp":"AB","pg":63825.43,"k9":0,"ls":0,"gf":0,"sp":0,"ms":41136.91,"sf":2277,"nt":"Sold pending job #","y":2026},
+{"id":"Pending2","name":"Waukee Landscape Area","a":122739.61,"d":"2026-02-19","pm":"Proj","r":"Jordan","m":"DSM","rp":"AB","pg":0,"k9":0,"ls":122739.61,"gf":0,"sp":0,"ms":0,"sf":8085,"nt":"","y":2026},
+{"id":"26012","name":"O'Fallon Carshield Field PG Install Mat","a":1121.7,"d":"2026-02-26","pm":"Mat","r":"House","m":"STL","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":1121.7,"sf":0,"nt":"Extra mat for install","y":2026},
+{"id":"26013","name":"Twin Oaks Golf Complex","a":21845.17,"d":"2026-03-04","pm":"Proj","r":"David","m":"KC","rp":"","pg":0,"k9":0,"ls":0,"gf":21845.17,"sp":0,"ms":0,"sf":1602,"nt":"","y":2026},
+{"id":"26014","name":"Orelt Residence","a":24761.37,"d":"2026-03-05","pm":"Proj","r":"House","m":"STL","rp":"","pg":0,"k9":24761.37,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1440,"nt":"","y":2026},
+{"id":"26015","name":"Jackie Kuhn Backyard Mat Only","a":15128.34,"d":"2026-03-27","pm":"Mat","r":"House","m":"KC","rp":"","pg":0,"k9":0,"ls":15128.34,"gf":0,"sp":0,"ms":0,"sf":1260,"nt":"","y":2026},
+{"id":"26016","name":"Libby Worley Backyard","a":10398.62,"d":"2026-03-24","pm":"Proj","r":"David","m":"KC","rp":"","pg":0,"k9":10398.62,"ls":0,"gf":0,"sp":0,"ms":0,"sf":690,"nt":"","y":2026},
+{"id":"26017","name":"Cottonwood Pet Resort Shade","a":15956.57,"d":"2026-03-27","pm":"Proj","r":"Jordan","m":"DSM","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":15956.57,"sf":0,"nt":"Shade","y":2026},
+{"id":"26018","name":"Gretna YMCA Mat Only","a":776.02,"d":"2026-03-26","pm":"Mat","r":"Jordan","m":"DSM","rp":"","pg":776.02,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":0,"nt":"Pad Mat Only","y":2026},
+{"id":"26019","name":"River Of Refuge","a":35755,"d":"2026-03-31","pm":"Mat","r":"House","m":"KC","rp":"AB","pg":28977.55,"k9":0,"ls":0,"gf":0,"sp":0,"ms":6777.45,"sf":1890,"nt":"","y":2026},
+{"id":"26020","name":"Miller Park","a":27372.44,"d":"2026-04-02","pm":"Proj","r":"Jordan","m":"DSM","rp":"","pg":27372.44,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":1680,"nt":"Mounds","y":2026}
+];
+
+/* ── Formatters ─────────────────────────────────────────────────────── */
+const fm = v => "$" + Math.round(v).toLocaleString();
+const fK = v => "$" + (v / 1000).toFixed(0) + "K";
+const fP = v => (v * 100).toFixed(1) + "%";
+const M = "'JetBrains Mono',monospace";
+
+/* ── Small UI components ───────────────────────────────────────────── */
+function Sl({l, v, set, mn, mx, st = 1, f = fm, sub}) {
+  return (
+    <div style={{marginBottom: 13}}>
+      <div style={{display: "flex", justifyContent: "space-between", marginBottom: 3}}>
+        <span style={{fontSize: 12, color: "#9ca3af", fontWeight: 500}}>{l}</span>
+        <span style={{fontSize: 13, color: "#5b8af5", fontFamily: M, fontWeight: 700}}>{f(v)}</span>
+      </div>
+      <input type="range" min={mn} max={mx} step={st} value={v}
+        onChange={e => set(+e.target.value)} style={{width: "100%"}}/>
+      {sub && <div style={{fontSize: 10, color: "#6b7280", marginTop: 2}}>{sub}</div>}
+    </div>
+  );
+}
+
+function Fd({l, v, set, sub}) {
+  return (
+    <div style={{marginBottom: 11}}>
+      <label style={{fontSize: 11, color: "#9ca3af", fontWeight: 500, display: "block", marginBottom: 2}}>{l}</label>
+      <input type="number" value={v} onChange={e => set(+e.target.value)}
+        style={{width: "100%", padding: "5px 8px", borderRadius: 5, border: "1px solid #2a2d38",
+          background: "#1e2130", color: "#e8eaed", fontSize: 12, fontFamily: M, boxSizing: "border-box"}}/>
+      {sub && <div style={{fontSize: 10, color: "#6b7280", marginTop: 2}}>{sub}</div>}
+    </div>
+  );
+}
+
+function KP({l, v, c, sub, children}) {
+  return (
+    <div style={{background: "#181b23", borderRadius: 10, padding: "12px 16px",
+      border: "1px solid #2a2d38", flex: 1, minWidth: 130}}>
+      <div style={{fontSize: 9, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 3}}>{l}</div>
+      <div style={{fontSize: 17, fontWeight: 800, color: c || "#e8eaed", fontFamily: M}}>{v}</div>
+      {sub && <div style={{fontSize: 10, color: "#6b7280", marginTop: 2}}>{sub}</div>}
+      {children}
+    </div>
+  );
+}
+
+function Sc({t, children}) {
+  return (
+    <div style={{marginBottom: 18}}>
+      {t && <h3 style={{fontSize: 11, color: "#5b8af5", textTransform: "uppercase", letterSpacing: 1.5,
+        marginBottom: 8, fontWeight: 700, borderBottom: "1px solid #2a2d38", paddingBottom: 5}}>{t}</h3>}
+      {children}
+    </div>
+  );
+}
+
+function Br({l, v, mx, c}) {
+  const p = mx > 0 ? Math.min(v / mx, 1) : 0;
+  return (
+    <div style={{marginBottom: 7}}>
+      <div style={{display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 2}}>
+        <span style={{color: "#6b7280"}}>{l}</span>
+        <span style={{fontFamily: M, color: "#e8eaed", fontWeight: 600}}>{fm(v)}</span>
+      </div>
+      <div style={{height: 5, background: "#2a2d38", borderRadius: 3}}>
+        <div style={{height: "100%", width: (p * 100) + "%", background: c || "#5b8af5",
+          borderRadius: 3, transition: "width 0.3s"}}/>
+      </div>
+    </div>
+  );
+}
+
+function Rw({children, c = 2}) {
+  return <div style={{display: "grid", gridTemplateColumns: "repeat(" + c + ", 1fr)", gap: 14}}>{children}</div>;
+}
+
+function St({l, v, c}) {
+  return (
+    <div style={{display: "flex", justifyContent: "space-between", padding: "4px 0",
+      borderBottom: "1px solid #2a2d38", fontSize: 11}}>
+      <span style={{color: "#6b7280"}}>{l}</span>
+      <span style={{fontFamily: M, fontWeight: 600, color: c || "#e8eaed"}}>{v}</span>
+    </div>
+  );
+}
+
+function BvA({l, b, a}) {
+  const p = b > 0 ? a / b : 0;
+  const c = p >= 0.9 ? "#4ade80" : p >= 0.5 ? "#fbbf24" : "#f87171";
+  return (
+    <div style={{marginBottom: 9}}>
+      <div style={{display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 2}}>
+        <span style={{color: "#6b7280"}}>{l}</span>
+        <span style={{fontFamily: M, fontSize: 9}}>
+          <span style={{color: c}}>{fm(a)}</span> / {fm(b)} ({fP(p)})
+        </span>
+      </div>
+      <div style={{height: 7, background: "#2a2d38", borderRadius: 4, position: "relative"}}>
+        <div style={{position: "absolute", height: "100%", width: (Math.min(p, 1) * 100) + "%",
+          background: c, borderRadius: 4, transition: "width 0.3s"}}/>
+      </div>
+    </div>
+  );
+}
+
+function Tx({l, v, set, type = "text", opts}) {
+  return (
+    <div style={{marginBottom: 7}}>
+      <label style={{fontSize: 10, color: "#9ca3af", fontWeight: 500, display: "block", marginBottom: 2}}>{l}</label>
+      {opts
+        ? <select value={v} onChange={e => set(e.target.value)}
+            style={{width: "100%", padding: "4px 7px", borderRadius: 4, border: "1px solid #2a2d38",
+              background: "#1e2130", color: "#e8eaed", fontSize: 11}}>
+            {opts.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        : <input type={type} value={v} onChange={e => set(type === "number" ? +e.target.value : e.target.value)}
+            style={{width: "100%", padding: "4px 7px", borderRadius: 4, border: "1px solid #2a2d38",
+              background: "#1e2130", color: "#e8eaed", fontSize: 11,
+              fontFamily: type === "number" ? M : "inherit", boxSizing: "border-box"}}/>
+      }
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   MAIN APP
+   ══════════════════════════════════════════════════════════════════════ */
+function App() {
+  const [tab, setTab] = useState(0);
+  const [sales, setSales] = useState(SEED);
+  const [instLog, setInstLog] = useState([]);
+  const [logYr, setLogYr] = useState(2026);
+  const [expanded, setExpanded] = useState({});
+  const toggleExp = i => setExpanded(p => ({...p, [i]: !p[i]}));
+
+  /* ── Budget inputs ─────────────────────────────────────────────── */
+  const [jS, sjS] = useState(1500000);
+  const [dS, sdS] = useState(1000000);
+  const [kS, skS] = useState(750000);
+  const [hS, shS] = useState(750000);
+  const aS = 39476;
+  const [gpm, sGpm] = useState(0.26);
+  const [cB, sCB] = useState(85000);
+  const [cBon, sCBon] = useState(0);
+  const [jB, sjB] = useState(60000);
+  const [dB, sdB] = useState(60000);
+  const [kB, skB] = useState(75000);
+  const [drB, sDrB] = useState(60000);
+  const [mH, sMH] = useState(30);
+  const [mR, sMR] = useState(25);
+  const [jBon, sJBon] = useState(15000);
+  const [drBon, sDrBon] = useState(2500);
+  const cr = 0.06, jT = 500000, dT = 250000, kT = 500000;
+  const [kIncr, sKIncr] = useState(0.60);
+  const [stlBl, sStlBl] = useState(300000);
+  const [rent, sRent] = useState(20400);
+  const [ins, sIns] = useState(22546);
+  const [tech, sTech] = useState(44264);
+  const [acct, sAcct] = useState(18000);
+  const [fcfo, sFcfo] = useState(60000);
+  const [ads, sAds] = useState(100000);
+  const [trav, sTrav] = useState(31307);
+  const [oth, sOth] = useState(15000);
+  const [bank, sBank] = useState(2202);
+  const [dues, sDues] = useState(1167);
+  const [post, sPost] = useState(757);
+  const [txLc, sTxLc] = useState(3652);
+  const [trn, sTrn] = useState(7380);
+  const [plc, sPlc] = useState(6000);
+  const [ptet, sPtet] = useState(0.05);
+
+  /* ── Install inputs ────────────────────────────────────────────── */
+  const [crCt, sCrCt] = useState(3);
+  const [crRt, sCrRt] = useState(24);
+  const [fmBase, sFmBase] = useState(65000);
+  const [fmBon, sFmBon] = useState(5000);
+  const [crSt, sCrSt] = useState(5);
+  const [iRt, sIRt] = useState(750);
+  const [wkW, sWkW] = useState(40);
+  const [tPmt, sTPmt] = useState(1000);
+  const [sPmt, sSPmt] = useState(1000);
+  const [fuel, sFuel] = useState(1000);
+  const [subRt, sSubRt] = useState(4.43);
+  const [clRt, sClRt] = useState(5.91);
+  const [instOn, setInstOn] = useState(true);
+  const [burdenRt, sBurdenRt] = useState(0.22);
+  const [crIns, sCrIns] = useState(12000);
+  const [consPsf, sConsPsf] = useState(0.40);
+  const [stonePsf, sStonePsf] = useState(0.43);
+
+  /* ── Form state ────────────────────────────────────────────────── */
+  const [showAdd, setShowAdd] = useState(false);
+  const [nS, sNS] = useState({id: "", name: "", a: 0, d: "2026-04-07", pm: "Proj", r: "Jordan",
+    m: "DSM", rp: "", pg: 0, k9: 0, ls: 0, gf: 0, sp: 0, ms: 0, sf: 0, nt: "", y: 2026});
+  const [showPO, setShowPO] = useState(false);
+  const [nP, sNP] = useState({project: "", sub: "RCG", amount: 0, sqft: 0, date: "2026-04-07", note: "", year: 2026});
+  const [showKIncr, setShowKIncr] = useState(false);
+  const [slFiltRep, setSlFiltRep] = useState("All");
+  const [slFiltMkt, setSlFiltMkt] = useState("All");
+  const [orderedSf, setOrderedSf] = useState(0);
+
+  /* ── Export helpers ────────────────────────────────────────────── */
+  const exportCSV = (rows, headers, filename) => {
+    const csv = [headers.join(","), ...rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(","))].join("\n");
+    const blob = new Blob([csv], {type: "text/csv"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+  };
+  const exportSalesCSV = () => {
+    const data = sales.filter(s => s.y === logYr);
+    const headers = ["Job #", "Project", "Amount", "Date", "P/M", "Rep", "Market", "RP", "Sqft", "Playground", "K9", "Landscape", "Golf", "Sports", "Misc", "Note"];
+    const rows = data.map(s => [s.id, s.name, s.a, s.d, s.pm, s.r, s.m, s.rp, s.sf || 0, s.pg, s.k9, s.ls, s.gf, s.sp, s.ms, s.nt]);
+    exportCSV(rows, headers, "FLKC_Sales_" + logYr + ".csv");
+  };
+  const exportPOCSV = () => {
+    const headers = ["Project", "Sub", "Amount", "Sqft", "$/sf", "Date", "Note"];
+    const rows = i26.map(p => [p.project, p.sub, p.amount, p.sqft || 0, p.sqft ? (p.amount / p.sqft).toFixed(2) : "", p.date, p.note]);
+    exportCSV(rows, headers, "FLKC_Install_POs_2026.csv");
+  };
+  const printDashboard = () => {
+    setTab(6);
+    setTimeout(() => window.print(), 300);
+  };
+
+  const addSale = () => {
+    if (!nS.name || !nS.a) return;
+    setSales(p => [...p, {...nS, id: nS.id || ("26" + (p.filter(s => s.y === 2026).length + 100))}]);
+    sNS({id: "", name: "", a: 0, d: "2026-04-07", pm: "Proj", r: "Jordan", m: "DSM", rp: "",
+      pg: 0, k9: 0, ls: 0, gf: 0, sp: 0, ms: 0, sf: 0, nt: "", y: 2026});
+    setShowAdd(false);
+  };
+  const addPO = () => {
+    if (!nP.project || !nP.amount) return;
+    setInstLog(p => [...p, {...nP, id: "PO-" + (p.length + 1)}]);
+    sNP({project: "", sub: "RCG", amount: 0, sqft: 0, date: "2026-04-07", note: "", year: 2026});
+    setShowPO(false);
+  };
+
+  /* ══ CALCULATIONS ══════════════════════════════════════════════════ */
+  const kMo = 8.4, kPro = kB * (kMo / 12), kCar = 500 * kMo, jCar = 6000, dCar = 6000;
+  const mAnn = mR * mH * 52;
+  const jCm = Math.max(0, jS - jT) * cr;
+  const dCm = Math.max(0, dS - dT) * cr;
+  const kCm = Math.max(0, kS - kT) * cr;
+  const aCm = aS * cr;
+  const tW = cB + jB + dB + kPro + drB + mAnn;
+  const tCar = jCar + dCar + kCar;
+  const tCom = jCm + dCm + kCm + aCm;
+  const tBon = jBon + drBon + cBon;
+  const tComp = tW + tCar + tCom + tBon;
+  const prTx = tComp * 0.11;
+  const e401 = cB + jB + drB + (dB * (8 / 12));
+  const c401 = e401 * 0.03;
+  const tPay = tComp + prTx + c401;
+  const tRev = jS + dS + kS + hS + aS;
+  const gp = tRev * gpm;
+  const tOH = rent + ins + tech + acct + fcfo + ads + trav + oth + bank + dues + post + txLc + trn + plc;
+  const tExp = tPay + tOH;
+  const beRev = gpm > 0 ? tExp / gpm : 0;
+
+  /* Install calcs */
+  const crMo = Math.max(0, 12 - crSt + 1);
+  const sesMo = Math.min(crMo, 9 - (crSt - 3));
+  const sesWk = wkW * (Math.max(0, sesMo) / 9);
+  const wkDy = sesWk * 5;
+  const tCap = iRt * wkDy;
+  const crLabBurd = crCt * crRt * 8 * wkDy * (1 + burdenRt);
+  const fmBurd = fmBase * (1 + burdenRt);
+  const eqMo = tPmt + sPmt + fuel;
+  const eqC = eqMo * crMo;
+  const consTotal = consPsf * tCap;
+  const stoneTotal = stonePsf * tCap;
+  const crInsP = crIns * (crMo / 12);
+  const tInt = crLabBurd + fmBurd + eqC + crInsP + consTotal + stoneTotal + fmBon;
+  const iPsf = tCap > 0 ? tInt / tCap : 0;
+  const subCS = subRt * tCap;
+  const intSv = subCS - tInt;
+  const intMr = clRt > 0 ? (clRt - iPsf) / clRt : 0;
+  const subMr = clRt > 0 ? (clRt - subRt) / clRt : 0;
+  const tDn = 70000 * 0.2 + 60000 * 0.2;
+  const sCap = 25343 + 7498;
+  const yr1C = tDn + sCap;
+
+  /* Company-wide */
+  const companyNOI = gp - tExp + (instOn ? intSv : 0);
+  const companyPtet = Math.max(0, companyNOI * ptet);
+  const companyNI = companyNOI - companyPtet;
+  const companyNM = tRev > 0 ? companyNI / tRev : 0;
+
+  /* Actuals from sales log */
+  const s26 = sales.filter(s => s.y === 2026);
+  const matchMkt = (sm, m) => sm === m || (sm === "StL" && m === "STL");
+  const aByR = r => s26.filter(s => s.r === r).reduce((a, s) => a + s.a, 0);
+  const aByM = m => s26.filter(s => matchMkt(s.m, m)).reduce((a, s) => a + s.a, 0);
+  const sfByM = m => s26.filter(s => matchMkt(s.m, m)).reduce((a, s) => a + (s.sf || 0), 0);
+  const aJ = aByR("Jordan"), aD = aByR("David"), aH = aByR("House");
+  const aK = aByR("Kinsey"), aDk = aByR("Derek");
+  const aTot = s26.reduce((a, s) => a + s.a, 0);
+  const aSf = s26.reduce((a, s) => a + (s.sf || 0), 0);
+  const i26 = instLog.filter(i => i.year === 2026);
+  const tabs = ["Overview", "Team", "Reps", "Install", "Sales Log", "Install Log", "Dashboard"];
+  const mN = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  /* Rep card component */
+  function RepCard({nm, rl, base, car, sl, thr, bon = 0, nts}) {
+    const cm = Math.max(0, sl - thr) * cr;
+    const tc = base + car + cm + bon;
+    const prt = tc * 0.11;
+    const fc = tc + prt;
+    const gpg = sl * gpm;
+    const net = gpg - fc;
+    const be = fc / gpm;
+    const roi = fc > 0 ? gpg / fc : 0;
+    return (
+      <div style={{background: "#181b23", borderRadius: 10, padding: 16,
+        border: "1px solid " + (net >= 0 ? "#4ade80" : "#f87171"), minWidth: 0, width: "100%"}}>
+        <div style={{display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10}}>
+          <div>
+            <div style={{fontSize: 15, fontWeight: 700}}>{nm}</div>
+            <div style={{fontSize: 10, color: "#6b7280"}}>{rl}</div>
+          </div>
+          <div style={{textAlign: "right"}}>
+            <div style={{fontSize: 16, fontWeight: 800, fontFamily: M,
+              color: net >= 0 ? "#4ade80" : "#f87171"}}>{net >= 0 ? "+" : ""}{fm(net)}</div>
+            <div style={{fontSize: 9, color: "#6b7280"}}>net impact</div>
+          </div>
+        </div>
+        <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 10px"}}>
+          <St l="Base" v={fm(base)}/><St l="Car" v={fm(car)}/>
+          <St l="Commission" v={fm(cm)} c={cm > 0 ? "#5b8af5" : undefined}/>
+          {bon > 0 && <St l="Bonus" v={fm(bon)}/>}
+          <St l="Full Cost" v={fm(fc)} c="#fbbf24"/>
+          <St l="GP Generated" v={fm(gpg)} c="#4ade80"/>
+          <St l="Breakeven Sales" v={fm(be)}/>
+          <St l="ROI" v={roi.toFixed(2) + "x"} c={roi >= 1 ? "#4ade80" : "#f87171"}/>
+        </div>
+        {nts && <div style={{fontSize: 9, color: "#6b7280", marginTop: 6, fontStyle: "italic"}}>{nts}</div>}
+      </div>
+    );
+  }
+
+  /* ══ RENDER ════════════════════════════════════════════════════════ */
+  return (
+    <div style={{minHeight: "100vh"}}>
+
+      {/* ── HEADER ──────────────────────────────────────────────── */}
+      <div style={{background: "linear-gradient(135deg,#181b23,#1a1f2e)",
+        borderBottom: "1px solid #2a2d38", padding: "14px 18px 10px"}}>
+        <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10}}>
+          <div>
+            <h1 style={{margin: 0, fontSize: 16, fontWeight: 800}}>FLKC 2026 Business Model</h1>
+            <div style={{fontSize: 10, color: "#6b7280", marginTop: 1}}>ForeverLawn STL / KC &mdash; Caleb Crayton</div>
+          </div>
+          <div style={{fontSize: 10, color: "#6b7280", textAlign: "right"}}>
+            Install Div: <span style={{color: instOn ? "#4ade80" : "#f87171", fontWeight: 600}}>
+              {instOn ? "ON" : "OFF"}</span>
+          </div>
+        </div>
+        <div style={{display: "flex", gap: 8, flexWrap: "wrap"}}>
+          <KP l="Revenue Goal" v={fm(tRev)} sub="Based on rep sales goals"/>
+          <KP l="Actual YTD Sales" v={fm(aTot)} c="#5b8af5"
+            sub={fP(tRev > 0 ? aTot / tRev : 0) + " of goal | " + s26.length + " projects"}/>
+          <KP l="Net Income (Company)" v={fm(companyNI)}
+            c={companyNI >= 0 ? "#4ade80" : "#f87171"}
+            sub={fP(companyNM) + " margin" + (instOn ? " (incl install div)" : "")}/>
+          <KP l="Breakeven" v={fm(beRev)}
+            c={tRev >= beRev ? "#4ade80" : "#f87171"}
+            sub={tRev >= beRev ? fK(tRev - beRev) + " above" : fK(beRev - tRev) + " below"}/>
+        </div>
+      </div>
+
+      {/* ── TABS ────────────────────────────────────────────────── */}
+      <div style={{display: "flex", borderBottom: "1px solid #2a2d38", background: "#181b23",
+        padding: "0 14px", overflowX: "auto"}}>
+        {tabs.map((t, i) =>
+          <button key={i} onClick={() => setTab(i)}
+            style={{padding: "8px 14px", background: "none", border: "none",
+              borderBottom: tab === i ? "2px solid #5b8af5" : "2px solid transparent",
+              color: tab === i ? "#e8eaed" : "#6b7280", fontSize: 11,
+              fontWeight: tab === i ? 700 : 500, cursor: "pointer",
+              fontFamily: "inherit", whiteSpace: "nowrap"}}>{t}</button>
+        )}
+      </div>
+
+      <div style={{padding: "14px 18px", maxWidth: 1200}}>
+
+        {/* ═══ TAB 0: OVERVIEW ═══ */}
+        {tab === 0 && <Rw>
+          <div>
+            <Sc t="Revenue Goals (by Rep)">
+              <Sl l="Jordan - DSM" v={jS} set={sjS} mn={0} mx={3e6} st={25000} sub={"Actual: " + fm(aJ)}/>
+              <Sl l="David - KC" v={dS} set={sdS} mn={0} mx={3e6} st={25000}
+                sub={"Actual: " + fm(aD) + " | $250K thr yr1"}/>
+              <Sl l="Kinsey - STL" v={kS} set={skS} mn={0} mx={3e6} st={25000}
+                sub={"Starts Apr 20 | Actual: " + fm(aK)}/>
+              <Sl l="House Account" v={hS} set={shS} mn={0} mx={2e6} st={25000}
+                sub={"Actual: " + fm(aH)}/>
+              <div style={{padding: "8px 12px", background: "#181b23", borderRadius: 7,
+                border: "1px solid #5b8af5", display: "flex", justifyContent: "space-between",
+                fontWeight: 700, fontSize: 13}}>
+                <span>Total Revenue Goal</span>
+                <span style={{fontFamily: M, color: "#5b8af5"}}>{fm(tRev)}</span>
+              </div>
+            </Sc>
+            <Sc t="Market Goals">
+              <div style={{fontSize: 10, color: "#6b7280", marginBottom: 6}}>
+                DSM=Jordan | KC=David+House KC | STL=Kinsey+House STL</div>
+              <BvA l="DSM" b={jS} a={aByM("DSM")}/>
+              <BvA l="KC" b={dS} a={aByM("KC")}/>
+              <BvA l="STL" b={kS} a={aByM("STL")}/>
+            </Sc>
+            <Sc t="GPM & Tax">
+              <Sl l="Blended GPM" v={gpm} set={sGpm} mn={0.15} mx={0.40} st={0.005} f={fP} sub="3-yr ~26%"/>
+              <Sl l="PTET Rate" v={ptet} set={sPtet} mn={0} mx={0.10} st={0.005} f={fP}/>
+            </Sc>
+          </div>
+          <div>
+            <Sc t="Fixed Overhead (Non-Payroll)">
+              <Rw>
+                <Fd l="Rent" v={rent} set={sRent}/><Fd l="Insurance" v={ins} set={sIns}/>
+                <Fd l="Tech & Phone" v={tech} set={sTech}/><Fd l="Accounting" v={acct} set={sAcct}/>
+                <Fd l="fCFO" v={fcfo} set={sFcfo}/><Fd l="Advertising" v={ads} set={sAds} sub="Target $100K"/>
+                <Fd l="Travel & Ent" v={trav} set={sTrav}/><Fd l="Other" v={oth} set={sOth}/>
+                <Fd l="Bank Fees" v={bank} set={sBank}/><Fd l="Dues" v={dues} set={sDues}/>
+                <Fd l="Postage" v={post} set={sPost}/><Fd l="Taxes & Lic" v={txLc} set={sTxLc}/>
+                <Fd l="Training" v={trn} set={sTrn}/><Fd l="Placement" v={plc} set={sPlc}/>
+              </Rw>
+              <div style={{marginTop: 6, padding: "7px 10px", background: "#181b23", borderRadius: 6,
+                border: "1px solid #2a2d38", display: "flex", justifyContent: "space-between",
+                fontWeight: 700, fontSize: 12}}>
+                <span>Non-Payroll OH</span>
+                <span style={{fontFamily: M, color: "#fbbf24"}}>{fm(tOH)}</span>
+              </div>
+              <div style={{marginTop: 4, padding: "7px 10px", background: "#181b23", borderRadius: 6,
+                border: "1px solid #5b8af5", display: "flex", justifyContent: "space-between",
+                fontWeight: 700, fontSize: 12}}>
+                <span>Total Expenses (Payroll + OH)</span>
+                <span style={{fontFamily: M, color: "#5b8af5"}}>{fm(tExp)}</span>
+              </div>
+            </Sc>
+            <Sc t="P&L Waterfall">
+              <Br l="Revenue" v={tRev} mx={tRev} c="#5b8af5"/>
+              <Br l="COGS" v={tRev - gp} mx={tRev} c="#f87171"/>
+              <Br l="Gross Profit (base)" v={gp} mx={tRev} c="#4ade80"/>
+              <Br l="Payroll (core)" v={tPay} mx={gp} c="#fbbf24"/>
+              <Br l="Non-Payroll OH" v={tOH} mx={gp} c="#f59e0b"/>
+              {instOn && <Br l={"Install Div Savings (" + Math.round(tCap).toLocaleString() + " sf)"}
+                v={Math.max(0, intSv)} mx={gp} c="#22d3ee"/>}
+              <div style={{marginTop: 4, padding: "7px 10px", background: "#181b23", borderRadius: 6,
+                border: "1px solid " + (companyNI >= 0 ? "#4ade80" : "#f87171"),
+                display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 12}}>
+                <span>Net Income {instOn ? "(w/ Install)" : "(Core)"}</span>
+                <span style={{fontFamily: M, color: companyNI >= 0 ? "#4ade80" : "#f87171"}}>
+                  {fm(companyNI)}</span>
+              </div>
+            </Sc>
+            <Sc t="Install Division">
+              <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8}}>
+                <span style={{fontSize: 11, color: "#9ca3af"}}>Include in P&L?</span>
+                <button onClick={() => setInstOn(!instOn)}
+                  style={{padding: "4px 14px", borderRadius: 5, border: "none",
+                    background: instOn ? "#4ade80" : "#f87171", color: "#000",
+                    fontSize: 10, fontWeight: 700, cursor: "pointer"}}>{instOn ? "ON" : "OFF"}</button>
+              </div>
+              {instOn && <div style={{fontSize: 10}}>
+                <St l="All-in Crew COGS" v={fm(tInt)} c="#fbbf24"/>
+                <St l="Equivalent Sub Cost" v={fm(subCS)}/>
+                <St l={"GP Uplift (" + Math.round(tCap).toLocaleString() + " sf)"}
+                  v={(intSv >= 0 ? "+" : "") + fm(intSv)} c={intSv >= 0 ? "#4ade80" : "#f87171"}/>
+                <St l="Cost/sqft (all-in)" v={"$" + iPsf.toFixed(2)} c="#e8eaed"/>
+                <St l="Sub PO rate" v={"$" + subRt.toFixed(2)}/>
+              </div>}
+            </Sc>
+          </div>
+        </Rw>}
+
+        {/* ═══ TAB 1: TEAM ═══ */}
+        {tab === 1 && <Rw>
+          <div>
+            <Sc t="Base Salaries">
+              <Sl l="Caleb" v={cB} set={sCB} mn={70000} mx={140000} st={1000} sub="Market $120K"/>
+              <Fd l="Caleb Year-End Bonus" v={cBon} set={sCBon}/>
+              <Sl l="Jordan" v={jB} set={sjB} mn={40000} mx={100000} st={1000}/>
+              <Sl l="David" v={dB} set={sdB} mn={40000} mx={100000} st={1000}/>
+              <Sl l="Kinsey" v={kB} set={skB} mn={50000} mx={120000} st={1000}
+                sub={"Prorated " + kMo + "mo = " + fm(kPro)}/>
+              <Sl l="Darlene" v={drB} set={sDrB} mn={40000} mx={80000} st={1000}/>
+              <Sl l="Mkt PT hrs" v={mH} set={sMH} mn={0} mx={40} st={5}
+                f={v => v + "h"} sub={"$" + mR + "/hr = " + fm(mAnn) + "/yr"}/>
+            </Sc>
+          </div>
+          <div>
+            <Sc t="Payroll Summary">
+              <St l="Total Comp" v={fm(tComp)}/>
+              <St l="Payroll Tax (11%)" v={fm(prTx)}/>
+              <St l="401k (3%)" v={fm(c401)}/>
+              <div style={{display: "flex", justifyContent: "space-between", padding: "6px 0",
+                fontWeight: 700, borderTop: "2px solid #5b8af5"}}>
+                <span style={{color: "#5b8af5"}}>TOTAL PAYROLL</span>
+                <span style={{fontFamily: M, color: "#5b8af5"}}>{fm(tPay)}</span>
+              </div>
+            </Sc>
+            <Sc t="Commission (6% above threshold)">
+              {[{n: "Jordan", s: jS, t: jT, c: jCm},
+                {n: "David", s: dS, t: dT, c: dCm, nt: "$250K yr1"},
+                {n: "Kinsey", s: kS, t: kT, c: kCm}].map(r =>
+                <div key={r.n} style={{display: "flex", justifyContent: "space-between",
+                  padding: "3px 0", borderBottom: "1px solid #2a2d38", fontSize: 10}}>
+                  <span>{r.n}{r.nt ? " (" + r.nt + ")" : ""}</span>
+                  <span style={{fontFamily: M}}>
+                    {r.c > 0
+                      ? fm(r.s - r.t) + " x 6% = " + fm(r.c)
+                      : <span style={{color: "#6b7280"}}>Below {fm(r.t)}</span>}
+                  </span>
+                </div>
+              )}
+            </Sc>
+          </div>
+        </Rw>}
+
+        {/* ═══ TAB 2: REPS ═══ */}
+        {tab === 2 && <div>
+          <div style={{display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 12, marginBottom: 16}}>
+            <RepCard nm="Jordan" rl="DSM - Full Year" base={jB} car={jCar}
+              sl={jS} thr={jT} bon={jBon} nts={"Actual YTD: " + fm(aJ)}/>
+            <RepCard nm="David" rl="KC - Year 1" base={dB} car={dCar}
+              sl={dS} thr={dT} nts={"Actual YTD: " + fm(aD) + " | $250K thr"}/>
+            <div>
+              <RepCard nm="Kinsey" rl="STL - Starts Apr 20" base={kPro} car={kCar}
+                sl={kS} thr={kT} nts={"$75K prorated " + kMo + "mo = " + fm(kPro)}/>
+              <button onClick={() => setShowKIncr(!showKIncr)}
+                style={{width: "100%", marginTop: 6, padding: "6px", borderRadius: 6,
+                  border: "1px solid #2a2d38", background: "#181b23", color: "#5b8af5",
+                  fontSize: 10, fontWeight: 600, cursor: "pointer"}}>
+                {showKIncr ? "Hide" : "Show"} Incremental Analysis</button>
+              {showKIncr && <div style={{marginTop: 6, padding: 12, background: "#181b23",
+                borderRadius: 8, border: "1px solid #2a2d38"}}>
+                <Sl l="% truly new" v={kIncr} set={sKIncr} mn={0} mx={1} st={0.05} f={fP}/>
+                <Sl l="STL baseline w/o rep" v={stlBl} set={sStlBl} mn={50000} mx={500000} st={25000}/>
+                <St l={"Incremental GP (" + fP(kIncr) + ")"} v={fm(kS * kIncr * gpm)} c="#4ade80"/>
+                <St l="Net" v={fm(kS * kIncr * gpm - (kPro + kCar + kCm) * 1.11)}
+                  c={kS * kIncr * gpm - (kPro + kCar + kCm) * 1.11 >= 0 ? "#4ade80" : "#f87171"}/>
+              </div>}
+            </div>
+          </div>
+          <Rw>
+            <div>
+              <Sc t="Budget vs Actual by Rep">
+                <BvA l="Jordan" b={jS} a={aJ}/>
+                <BvA l="David" b={dS} a={aD}/>
+                <BvA l="Kinsey" b={kS} a={aK}/>
+                <BvA l="House" b={hS} a={aH}/>
+                <div style={{height: 1, background: "#5b8af5", margin: "6px 0"}}/>
+                <BvA l="TOTAL" b={tRev} a={aTot}/>
+              </Sc>
+            </div>
+            <div>
+              <Sc t="House Account">
+                <St l="2026 Goal" v={fm(hS)} c="#5b8af5"/>
+                <St l="Actual YTD" v={fm(aH)} c="#4ade80"/>
+                <St l="GP Generated" v={fm(aH * gpm)} c="#4ade80"/>
+              </Sc>
+            </div>
+          </Rw>
+        </div>}
+
+        {/* ═══ TAB 3: INSTALL ═══ */}
+        {tab === 3 && <Rw>
+          <div>
+            <Sc t="Crew Setup">
+              <Sl l="Crew Members" v={crCt} set={sCrCt} mn={1} mx={6} f={v => v + " laborers"}/>
+              <Sl l="Avg Crew Rate" v={crRt} set={sCrRt} mn={18} mx={35} st={0.5}
+                f={v => "$" + v.toFixed(2) + "/hr"} sub="Blended avg across crew"/>
+              <Fd l="Foreman Base Salary" v={fmBase} set={sFmBase}/>
+              <Fd l="Foreman Expected Bonus" v={fmBon} set={sFmBon}
+                sub={"Total comp: " + fm(fmBase + fmBon) + " | Tiers: $2.5K-$15K"}/>
+              <Sl l="Start Month" v={crSt} set={sCrSt} mn={3} mx={8} f={v => mN[v]}
+                sub={crMo + " mo active | " + Math.round(wkDy) + " install days"}/>
+              <Sl l="Avg Sqft/Day" v={iRt} set={sIRt} mn={500} mx={1500} st={25}
+                f={v => v + ""} sub="750/day target for bonus tiers"/>
+              <Sl l="Season Weeks" v={wkW} set={sWkW} mn={30} mx={50} f={v => v + " wks"}/>
+            </Sc>
+            <Sc t="Equipment (monthly)">
+              <Sl l="Truck" v={tPmt} set={sTPmt} mn={0} mx={2500} st={100}/>
+              <Sl l="Skid" v={sPmt} set={sSPmt} mn={0} mx={2500} st={100}/>
+              <Sl l="Fuel" v={fuel} set={sFuel} mn={0} mx={2500} st={100}/>
+            </Sc>
+            <Sc t="Burden, Insurance & Materials">
+              <Sl l="Burden Rate (payroll tax+WC)" v={burdenRt} set={sBurdenRt}
+                mn={0.15} mx={0.30} st={0.01} f={fP} sub="22% = 11% payroll + ~11% WC"/>
+              <Fd l="Insurance (GL+vehicle+equip)" v={crIns} set={sCrIns}/>
+              <Sl l="Consumables (tape,glue,tapcons)" v={consPsf} set={sConsPsf}
+                mn={0} mx={1} st={0.05} f={v => "$" + v.toFixed(2) + "/sf"}
+                sub={fm(consTotal) + " total"}/>
+              <Sl l="Stone material" v={stonePsf} set={sStonePsf}
+                mn={0} mx={1} st={0.05} f={v => "$" + v.toFixed(2) + "/sf"}
+                sub={"$35/ton, 3-4\" depth | " + fm(stoneTotal) + " total"}/>
+            </Sc>
+          </div>
+          <div>
+            <Sc t="Year 1 Capex">
+              <St l="Down payments (20%)" v={fm(tDn)}/>
+              <St l="Cash equip + tools" v={fm(sCap)}/>
+              <div style={{display: "flex", justifyContent: "space-between", padding: "6px 0",
+                fontWeight: 800, borderTop: "2px solid #5b8af5", marginTop: 4}}>
+                <span>Total</span>
+                <span style={{fontFamily: M, color: "#5b8af5"}}>{fm(yr1C)}</span>
+              </div>
+            </Sc>
+            <Sc t="Full Cost Breakdown">
+              <St l={"Crew burdened (" + fP(burdenRt) + ")"} v={fm(crLabBurd)}/>
+              <St l={"Foreman burdened (" + fP(burdenRt) + ")"} v={fm(fmBurd)}/>
+              <St l="Foreman bonus" v={fm(fmBon)}/>
+              <St l={"Equipment (" + crMo + "mo)"} v={fm(eqC)}/>
+              <St l="Insurance (GL+veh+equip)" v={fm(crInsP)}/>
+              <St l={"Consumables ($" + consPsf.toFixed(2) + "/sf)"} v={fm(consTotal)}/>
+              <St l={"Stone ($" + stonePsf.toFixed(2) + "/sf)"} v={fm(stoneTotal)}/>
+              <div style={{display: "flex", justifyContent: "space-between", padding: "6px 0",
+                fontWeight: 800, fontSize: 12, borderTop: "2px solid #fbbf24", marginTop: 4}}>
+                <span>Total Install COGS</span>
+                <span style={{fontFamily: M, color: "#fbbf24"}}>{fm(tInt)}</span>
+              </div>
+              <div style={{marginTop: 8, padding: 10, background: "#0f1117", borderRadius: 6, fontSize: 10}}>
+                <St l="All-in cost/sqft" v={"$" + iPsf.toFixed(2) + "/sqft"} c="#e8eaed"/>
+                <St l="Sub PO rate" v={"$" + subRt.toFixed(2) + "/sqft"}/>
+                <St l="Savings per sqft" v={"$" + (subRt - iPsf).toFixed(2) + "/sqft"} c="#4ade80"/>
+              </div>
+            </Sc>
+            <Sc t="Sub vs In-House">
+              <Rw>
+                <div style={{padding: 10, background: "#0f1117", borderRadius: 7, textAlign: "center"}}>
+                  <div style={{fontSize: 9, color: "#6b7280", textTransform: "uppercase", marginBottom: 4}}>Sub</div>
+                  <div style={{fontSize: 14, fontWeight: 700, fontFamily: M}}>{fP(subMr)}</div>
+                  <div style={{fontSize: 10}}>GP: {fm(tCap * clRt - subCS)}</div>
+                </div>
+                <div style={{padding: 10, background: "#0f1117", borderRadius: 7, textAlign: "center",
+                  border: "1px solid #4ade80"}}>
+                  <div style={{fontSize: 9, color: "#4ade80", textTransform: "uppercase", marginBottom: 4}}>In-House</div>
+                  <div style={{fontSize: 14, fontWeight: 700, fontFamily: M, color: "#4ade80"}}>{fP(intMr)}</div>
+                  <div style={{fontSize: 10}}>GP: {fm(tCap * clRt - tInt)}</div>
+                </div>
+              </Rw>
+              <div style={{marginTop: 10, textAlign: "center", padding: 10,
+                background: intSv > 0 ? "rgba(74,222,128,0.08)" : "rgba(248,113,113,0.08)",
+                borderRadius: 7}}>
+                <div style={{fontSize: 10, color: "#6b7280"}}>
+                  Annual Savings ({Math.round(tCap).toLocaleString()} sf)</div>
+                <div style={{fontSize: 18, fontWeight: 800, fontFamily: M,
+                  color: intSv > 0 ? "#4ade80" : "#f87171"}}>
+                  {intSv >= 0 ? "+" : ""}{fm(intSv)}</div>
+                <div style={{fontSize: 10, color: "#6b7280", marginTop: 3}}>
+                  Net yr 1 (after {fm(yr1C)} capex):{" "}
+                  <strong style={{fontFamily: M,
+                    color: (intSv - yr1C) >= 0 ? "#4ade80" : "#fbbf24"}}>{fm(intSv - yr1C)}</strong>
+                </div>
+              </div>
+            </Sc>
+          </div>
+        </Rw>}
+
+        {/* ═══ TAB 4: SALES LOG ═══ */}
+        {tab === 4 && (() => {
+          const yrSales = sales.filter(s => s.y === logYr);
+          const filtered = yrSales.filter(s =>
+            (slFiltRep === "All" || s.r === slFiltRep) &&
+            (slFiltMkt === "All" || matchMkt(s.m, slFiltMkt))
+          ).sort((a, b) => a.d > b.d ? 1 : -1);
+          const fTot = filtered.reduce((a, s) => a + s.a, 0);
+          const fSf = filtered.reduce((a, s) => a + (s.sf || 0), 0);
+          const projCt = filtered.filter(s => s.pm === "Proj").length;
+          const matCt = filtered.filter(s => s.pm === "Mat").length;
+          const rpCt = filtered.filter(s => s.rp && s.rp !== "").length;
+          const reps = [...new Set(yrSales.map(s => s.r))].sort();
+          const mkts = [...new Set(yrSales.map(s => s.m))].sort();
+          return <div>
+          <div style={{display: "flex", justifyContent: "space-between", alignItems: "center",
+            marginBottom: 12, flexWrap: "wrap", gap: 8}}>
+            <div style={{display: "flex", gap: 6, alignItems: "center"}}>
+              {[2025, 2026].map(y =>
+                <button key={y} onClick={() => { setLogYr(y); setSlFiltRep("All"); setSlFiltMkt("All"); }}
+                  style={{padding: "5px 14px", borderRadius: 5, border: "1px solid #2a2d38",
+                    background: logYr === y ? "#5b8af5" : "#181b23",
+                    color: logYr === y ? "#fff" : "#6b7280", fontSize: 11,
+                    fontWeight: 700, cursor: "pointer"}}>{y}</button>
+              )}
+              <select value={slFiltRep} onChange={e => setSlFiltRep(e.target.value)}
+                style={{padding: "4px 8px", borderRadius: 4, border: "1px solid #2a2d38",
+                  background: "#1e2130", color: slFiltRep !== "All" ? "#5b8af5" : "#6b7280", fontSize: 10}}>
+                <option value="All">All Reps</option>
+                {reps.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+              <select value={slFiltMkt} onChange={e => setSlFiltMkt(e.target.value)}
+                style={{padding: "4px 8px", borderRadius: 4, border: "1px solid #2a2d38",
+                  background: "#1e2130", color: slFiltMkt !== "All" ? "#5b8af5" : "#6b7280", fontSize: 10}}>
+                <option value="All">All Markets</option>
+                {mkts.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div style={{display: "flex", gap: 8, alignItems: "center"}}>
+              <span style={{fontSize: 10, color: "#6b7280"}}>
+                {filtered.length} projects | {fm(fTot)} | {fSf.toLocaleString()} sqft
+              </span>
+              <button onClick={exportSalesCSV}
+                style={{padding: "4px 10px", borderRadius: 4, border: "1px solid #2a2d38",
+                  background: "#181b23", color: "#5b8af5", fontSize: 9, fontWeight: 600, cursor: "pointer"}}>
+                Export CSV</button>
+              {logYr === 2026 &&
+                <button onClick={() => setShowAdd(!showAdd)}
+                  style={{padding: "5px 12px", borderRadius: 5, background: "#4ade80",
+                    color: "#000", fontSize: 10, fontWeight: 700, border: "none",
+                    cursor: "pointer"}}>+ Add Sale</button>}
+            </div>
+          </div>
+
+          {/* Breakdown stats */}
+          <div style={{display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap"}}>
+            <div style={{background: "#181b23", borderRadius: 6, padding: "6px 12px", border: "1px solid #2a2d38", fontSize: 10}}>
+              <span style={{color: "#6b7280"}}>Proj: </span>
+              <span style={{fontFamily: M, fontWeight: 600}}>{projCt}</span>
+              <span style={{color: "#6b7280"}}> ({filtered.length > 0 ? ((projCt / filtered.length) * 100).toFixed(0) : 0}%)</span>
+              <span style={{color: "#6b7280"}}> | Mat: </span>
+              <span style={{fontFamily: M, fontWeight: 600}}>{matCt}</span>
+              <span style={{color: "#6b7280"}}> ({filtered.length > 0 ? ((matCt / filtered.length) * 100).toFixed(0) : 0}%)</span>
+            </div>
+            <div style={{background: "#181b23", borderRadius: 6, padding: "6px 12px", border: "1px solid #2a2d38", fontSize: 10}}>
+              <span style={{color: "#6b7280"}}>Rep Projects (AB/ABC): </span>
+              <span style={{fontFamily: M, fontWeight: 600, color: "#5b8af5"}}>{rpCt}</span>
+              <span style={{color: "#6b7280"}}> ({filtered.length > 0 ? ((rpCt / filtered.length) * 100).toFixed(0) : 0}%) | </span>
+              <span style={{color: "#6b7280"}}>Non-RP: </span>
+              <span style={{fontFamily: M, fontWeight: 600}}>{filtered.length - rpCt}</span>
+              <span style={{color: "#6b7280"}}> ({filtered.length > 0 ? (((filtered.length - rpCt) / filtered.length) * 100).toFixed(0) : 0}%)</span>
+            </div>
+            <div style={{background: "#181b23", borderRadius: 6, padding: "6px 12px", border: "1px solid #2a2d38", fontSize: 10}}>
+              <span style={{color: "#6b7280"}}>RP $: </span>
+              <span style={{fontFamily: M, fontWeight: 600, color: "#5b8af5"}}>{fm(filtered.filter(s => s.rp).reduce((a, s) => a + s.a, 0))}</span>
+              <span style={{color: "#6b7280"}}> ({fTot > 0 ? ((filtered.filter(s => s.rp).reduce((a, s) => a + s.a, 0) / fTot) * 100).toFixed(0) : 0}% of $)</span>
+            </div>
+          </div>
+
+          {showAdd && <div style={{background: "#181b23", borderRadius: 8, padding: 14,
+            border: "1px solid #4ade80", marginBottom: 12}}>
+            <div style={{fontSize: 12, fontWeight: 700, color: "#4ade80", marginBottom: 8}}>New Sale</div>
+            <div style={{display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "0 10px"}}>
+              <Tx l="Job #" v={nS.id} set={v => sNS({...nS, id: v})}/>
+              <Tx l="Project Name" v={nS.name} set={v => sNS({...nS, name: v})}/>
+              <Tx l="Amount" v={nS.a} set={v => sNS({...nS, a: v})} type="number"/>
+              <Tx l="Date" v={nS.d} set={v => sNS({...nS, d: v})} type="date"/>
+              <Tx l="Proj/Mat" v={nS.pm} set={v => sNS({...nS, pm: v})} opts={["Proj", "Mat"]}/>
+              <Tx l="Rep" v={nS.r} set={v => sNS({...nS, r: v})}
+                opts={["Jordan", "David", "Kinsey", "House", "Austin", "Derek"]}/>
+              <Tx l="Market" v={nS.m} set={v => sNS({...nS, m: v})} opts={["KC", "DSM", "STL", "IA"]}/>
+              <Tx l="Rep Project" v={nS.rp} set={v => sNS({...nS, rp: v})} opts={["", "AB", "ABC"]}/>
+              <Tx l="Sqft" v={nS.sf} set={v => sNS({...nS, sf: v})} type="number"/>
+              <Tx l="Note" v={nS.nt} set={v => sNS({...nS, nt: v})}/>
+            </div>
+            <button onClick={addSale}
+              style={{marginTop: 6, padding: "7px 20px", borderRadius: 5, background: "#4ade80",
+                color: "#000", fontWeight: 700, border: "none", cursor: "pointer", fontSize: 11}}>Save</button>
+          </div>}
+
+          {logYr === 2026 && <div style={{marginBottom: 12}}>
+            <BvA l="Jordan" b={jS} a={aJ}/>
+            <BvA l="David" b={dS} a={aD}/>
+            <BvA l="Kinsey" b={kS} a={aK}/>
+            <BvA l="House" b={hS} a={aH}/>
+            <BvA l="TOTAL" b={tRev} a={aTot}/>
+          </div>}
+
+          <div style={{overflowX: "auto"}}>
+            <table style={{width: "100%", borderCollapse: "collapse", fontSize: 10, minWidth: 900}}>
+              <thead>
+                <tr style={{borderBottom: "2px solid #2a2d38", background: "#0f1117"}}>
+                  {["#", "Project", "Amount", "Date", "P/M", "Rep", "Mkt", "RP", "Sqft", "Note", ""].map(h =>
+                    <th key={h} style={{padding: "5px 6px",
+                      textAlign: ["Amount", "Sqft"].includes(h) ? "right" : "left",
+                      color: "#6b7280", fontWeight: 600, fontSize: 9, textTransform: "uppercase",
+                      whiteSpace: "nowrap"}}>{h}</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((s, i) => {
+                  const key = logYr + "-" + i + "-" + s.id;
+                  const rows = [];
+                  rows.push(
+                    <tr key={"r" + key} style={{borderBottom: "1px solid #2a2d38", cursor: "pointer"}}
+                      onClick={() => toggleExp(key)}>
+                      <td style={{padding: "5px 6px", fontSize: 9, color: "#6b7280"}}>{s.id}</td>
+                      <td style={{padding: "5px 6px", fontWeight: 500}}>{s.name}</td>
+                      <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M,
+                        fontWeight: 600, color: "#4ade80"}}>{fm(s.a)}</td>
+                      <td style={{padding: "5px 6px", fontSize: 9, color: "#6b7280", whiteSpace: "nowrap"}}>{s.d}</td>
+                      <td style={{padding: "5px 6px", fontSize: 9}}>{s.pm}</td>
+                      <td style={{padding: "5px 6px", fontWeight: 600, color: "#5b8af5"}}>{s.r}</td>
+                      <td style={{padding: "5px 6px", fontSize: 9}}>{s.m}</td>
+                      <td style={{padding: "5px 6px", fontSize: 9,
+                        color: s.rp ? "#5b8af5" : "#2a2d38"}}>{s.rp || "-"}</td>
+                      <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M, fontSize: 9}}>
+                        {s.sf ? s.sf.toLocaleString() : "-"}</td>
+                      <td style={{padding: "5px 6px", fontSize: 9, color: "#6b7280", maxWidth: 200}}>
+                        {s.nt || ""}</td>
+                      <td style={{padding: "5px 6px"}}>
+                        {logYr === 2026 &&
+                          <button onClick={e => {
+                            e.stopPropagation();
+                            setSales(prev => prev.filter(x => x !== s));
+                          }} style={{background: "none", border: "none", color: "#f87171",
+                            cursor: "pointer", fontSize: 11}}>x</button>}
+                      </td>
+                    </tr>
+                  );
+                  if (expanded[key]) {
+                    rows.push(
+                      <tr key={"e" + key}>
+                        <td colSpan={11} style={{padding: "8px 20px", background: "#181b23",
+                          borderBottom: "1px solid #2a2d38"}}>
+                          <div style={{display: "flex", gap: 16, fontSize: 10, flexWrap: "wrap"}}>
+                            {[["Playground", s.pg], ["K9", s.k9], ["Landscape", s.ls],
+                              ["Golf", s.gf], ["Sports", s.sp], ["Misc", s.ms]]
+                              .filter(x => x[1] > 0)
+                              .map(x => <span key={x[0]} style={{color: "#9ca3af"}}>
+                                {x[0]}: <strong style={{color: "#e8eaed", fontFamily: M}}>{fm(x[1])}</strong>
+                              </span>)}
+                            {s.nt && <span style={{color: "#9ca3af"}}>
+                              Note: <em style={{color: "#e8eaed"}}>{s.nt}</em></span>}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+                  return rows;
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>;
+        })()}
+
+        {/* ═══ TAB 5: INSTALL LOG ═══ */}
+        {tab === 5 && <div>
+          <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12}}>
+            <h2 style={{margin: 0, fontSize: 14, fontWeight: 700}}>Install PO Log</h2>
+            <div style={{display: "flex", gap: 6}}>
+              {i26.length > 0 && <button onClick={exportPOCSV}
+                style={{padding: "4px 10px", borderRadius: 4, border: "1px solid #2a2d38",
+                  background: "#181b23", color: "#5b8af5", fontSize: 9, fontWeight: 600, cursor: "pointer"}}>
+                Export CSV</button>}
+              <button onClick={() => setShowPO(!showPO)}
+                style={{padding: "5px 12px", borderRadius: 5, background: "#4ade80",
+                  color: "#000", fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer"}}>+ Add PO</button>
+            </div>
+          </div>
+          {showPO && <div style={{background: "#181b23", borderRadius: 8, padding: 14,
+            border: "1px solid #4ade80", marginBottom: 12}}>
+            <div style={{display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 10px"}}>
+              <Tx l="Project" v={nP.project} set={v => sNP({...nP, project: v})}/>
+              <Tx l="Sub" v={nP.sub} set={v => sNP({...nP, sub: v})}
+                opts={["RCG", "Ripke", "Focal Point", "In-House"]}/>
+              <Tx l="Amount" v={nP.amount} set={v => sNP({...nP, amount: v})} type="number"/>
+              <Tx l="Sqft" v={nP.sqft} set={v => sNP({...nP, sqft: v})} type="number"/>
+              <Tx l="Date" v={nP.date} set={v => sNP({...nP, date: v})} type="date"/>
+              <Tx l="Note" v={nP.note} set={v => sNP({...nP, note: v})}/>
+            </div>
+            <button onClick={addPO}
+              style={{marginTop: 6, padding: "7px 20px", borderRadius: 5, background: "#4ade80",
+                color: "#000", fontWeight: 700, border: "none", cursor: "pointer", fontSize: 11}}>Save PO</button>
+          </div>}
+
+          <Sc t="Summary by Sub">
+            {["RCG", "Ripke", "Focal Point", "In-House"].map(sub => {
+              const ps = i26.filter(i => i.sub === sub);
+              const t = ps.reduce((a, p) => a + p.amount, 0);
+              const sf = ps.reduce((a, p) => a + (p.sqft || 0), 0);
+              return (
+                <div key={sub} style={{display: "flex", justifyContent: "space-between",
+                  padding: "5px 0", borderBottom: "1px solid #2a2d38", fontSize: 11}}>
+                  <span style={{fontWeight: 600}}>{sub}</span>
+                  <span style={{fontFamily: M}}>{ps.length} POs | {fm(t)} | {sf.toLocaleString()} sf</span>
+                </div>
+              );
+            })}
+          </Sc>
+
+          {i26.length > 0 && <table style={{width: "100%", borderCollapse: "collapse", fontSize: 11}}>
+            <thead>
+              <tr style={{borderBottom: "2px solid #2a2d38"}}>
+                {["Project", "Sub", "Amount", "Sqft", "$/sf", "Date", "Note", ""].map(h =>
+                  <th key={h} style={{padding: "4px 6px",
+                    textAlign: ["Amount", "Sqft", "$/sf"].includes(h) ? "right" : "left",
+                    color: "#6b7280", fontWeight: 600, fontSize: 9, textTransform: "uppercase"}}>{h}</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {i26.sort((a, b) => a.date > b.date ? 1 : -1).map((p, i) =>
+                <tr key={i} style={{borderBottom: "1px solid #2a2d38"}}>
+                  <td style={{padding: "4px 6px"}}>{p.project}</td>
+                  <td style={{padding: "4px 6px", color: "#5b8af5"}}>{p.sub}</td>
+                  <td style={{padding: "4px 6px", textAlign: "right", fontFamily: M,
+                    color: "#fbbf24"}}>{fm(p.amount)}</td>
+                  <td style={{padding: "4px 6px", textAlign: "right", fontFamily: M}}>
+                    {p.sqft ? p.sqft.toLocaleString() : "-"}</td>
+                  <td style={{padding: "4px 6px", textAlign: "right", fontFamily: M, fontSize: 9}}>
+                    {p.sqft ? "$" + (p.amount / p.sqft).toFixed(2) : "-"}</td>
+                  <td style={{padding: "4px 6px", fontSize: 9, color: "#6b7280"}}>{p.date}</td>
+                  <td style={{padding: "4px 6px", fontSize: 9, color: "#6b7280"}}>{p.note}</td>
+                  <td><button onClick={() => {
+                    setInstLog(prev => {
+                      const f = prev.filter(x => x.year === 2026);
+                      return prev.filter(x => x !== f[i]);
+                    });
+                  }} style={{background: "none", border: "none", color: "#f87171",
+                    cursor: "pointer", fontSize: 11}}>x</button></td>
+                </tr>
+              )}
+            </tbody>
+          </table>}
+          {i26.length === 0 &&
+            <div style={{textAlign: "center", padding: 30, color: "#6b7280", fontSize: 12}}>
+              No POs yet. Click + Add PO.</div>}
+        </div>}
+
+        {/* ═══ TAB 6: EXECUTIVE DASHBOARD ═══ */}
+        {tab === 6 && <div id="dashboard-print">
+          <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16}}>
+            <div style={{textAlign: "center", flex: 1}}>
+              <h2 style={{margin: 0, fontSize: 17, fontWeight: 800}}>2026 Executive Summary</h2>
+              <div style={{fontSize: 10, color: "#6b7280", marginTop: 3}}>
+                Goal vs Actual &mdash; ForeverLawn KC / STL</div>
+            </div>
+            <button onClick={printDashboard} className="no-print"
+              style={{padding: "5px 14px", borderRadius: 5, border: "1px solid #2a2d38",
+                background: "#181b23", color: "#5b8af5", fontSize: 10, fontWeight: 600, cursor: "pointer"}}>
+              Print / PDF</button>
+          </div>
+          <div style={{display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16}}>
+            <KP l="Revenue Goal" v={fm(tRev)}/>
+            <KP l="Actual YTD Sales" v={fm(aTot)} c="#5b8af5"
+              sub={fP(tRev > 0 ? aTot / tRev : 0) + " of goal"}/>
+            <KP l="Net Income (Company)" v={fm(companyNI)}
+              c={companyNI >= 0 ? "#4ade80" : "#f87171"} sub={fP(companyNM) + " margin"}/>
+            <KP l="Projects Closed" v={s26.length + ""} c="#5b8af5">
+              <div style={{marginTop: 6, fontSize: 9, color: "#6b7280"}}>
+                <div>{aSf.toLocaleString()} total sqft</div>
+                <div style={{display: "flex", gap: 8, marginTop: 3}}>
+                  {["KC", "DSM", "STL"].map(m =>
+                    <span key={m}><strong style={{color: "#e8eaed"}}>{m}:</strong> {sfByM(m).toLocaleString()} sf</span>
+                  )}
+                </div>
+              </div>
+            </KP>
+          </div>
+
+          <Rw>
+            <div>
+              <Sc t="Revenue - Goal vs Actual">
+                <BvA l="Jordan (DSM)" b={jS} a={aJ}/>
+                <BvA l="David (KC)" b={dS} a={aD}/>
+                <BvA l="Kinsey (STL)" b={kS} a={aK}/>
+                <BvA l="House" b={hS} a={aH}/>
+                <div style={{height: 1, background: "#5b8af5", margin: "6px 0"}}/>
+                <BvA l="TOTAL" b={tRev} a={aTot}/>
+              </Sc>
+              <Sc t="By Market - Goal vs Actual">
+                <BvA l="DSM" b={jS} a={aByM("DSM")}/>
+                <BvA l="KC" b={dS} a={aByM("KC")}/>
+                <BvA l="STL" b={kS} a={aByM("STL")}/>
+              </Sc>
+              <Sc t="P&L (at Revenue Goal)">
+                <St l="Revenue" v={fm(tRev)} c="#5b8af5"/>
+                <St l="COGS" v={fm(tRev - gp)} c="#f87171"/>
+                <St l="Gross Profit" v={fm(gp)} c="#4ade80"/>
+                <St l="Core Payroll" v={fm(tPay)} c="#fbbf24"/>
+                <St l="Non-Payroll OH" v={fm(tOH)} c="#fbbf24"/>
+                {instOn && <St l="Install Savings" v={(intSv >= 0 ? "+" : "") + fm(intSv)} c="#22d3ee"/>}
+                <St l="PTET" v={fm(companyPtet)}/>
+                <div style={{display: "flex", justifyContent: "space-between", padding: "7px 0",
+                  fontWeight: 800, fontSize: 13, borderTop: "2px solid #5b8af5", marginTop: 4}}>
+                  <span>Net Income</span>
+                  <span style={{fontFamily: M, color: companyNI >= 0 ? "#4ade80" : "#f87171"}}>
+                    {fm(companyNI)}</span>
+                </div>
+              </Sc>
+            </div>
+            <div>
+              <Sc t="Product Mix (Actual YTD)">
+                {[["Playground", "pg"], ["K9", "k9"], ["Landscape", "ls"],
+                  ["Golf", "gf"], ["Sports", "sp"], ["Misc (Mounds)", "ms"]].map(function(x) {
+                  const n = x[0], k = x[1];
+                  const t = s26.reduce((a, s) => a + (s[k] || 0), 0);
+                  const sf = s26.filter(s => s[k] > 0).reduce((a, s) => a + (s.sf || 0), 0);
+                  if (t <= 0) return null;
+                  return (
+                    <div key={n} style={{marginBottom: 7}}>
+                      <div style={{display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 2}}>
+                        <span style={{fontWeight: 600}}>{n}</span>
+                        <span style={{fontFamily: M}}>{fm(t)}{" "}
+                          <span style={{color: "#6b7280"}}>| {sf.toLocaleString()} sf</span></span>
+                      </div>
+                      <div style={{height: 5, background: "#2a2d38", borderRadius: 3}}>
+                        <div style={{height: "100%", width: ((t / aTot) * 100) + "%",
+                          background: "#5b8af5", borderRadius: 3}}/>
+                      </div>
+                    </div>
+                  );
+                })}
+              </Sc>
+              <Sc t="Revenue by Market (Actual YTD)">
+                {["KC", "DSM", "STL"].map(m => {
+                  const t = aByM(m);
+                  const ct = s26.filter(s => matchMkt(s.m, m)).length;
+                  const sf = sfByM(m);
+                  if (t <= 0) return null;
+                  return (
+                    <div key={m} style={{marginBottom: 7}}>
+                      <div style={{display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 2}}>
+                        <span style={{fontWeight: 600}}>{m}</span>
+                        <span style={{fontFamily: M}}>{fm(t)} ({ct} proj){" "}
+                          <span style={{color: "#6b7280"}}>| {sf.toLocaleString()} sf</span></span>
+                      </div>
+                      <div style={{height: 5, background: "#2a2d38", borderRadius: 3}}>
+                        <div style={{height: "100%", width: ((t / aTot) * 100) + "%",
+                          background: "#5b8af5", borderRadius: 3}}/>
+                      </div>
+                    </div>
+                  );
+                })}
+              </Sc>
+              <Sc t="Install Operations">
+                <St l="Total POs" v={i26.length + ""}/>
+                <St l="Total Spend" v={fm(i26.reduce((a, p) => a + p.amount, 0))}/>
+                <St l="Total Sqft" v={i26.reduce((a, p) => a + (p.sqft || 0), 0).toLocaleString()}/>
+                {i26.length > 0 &&
+                  <St l="Avg $/sf" v={"$" + (i26.reduce((a, p) => a + p.amount, 0) /
+                    Math.max(1, i26.reduce((a, p) => a + (p.sqft || 0), 0))).toFixed(2)}/>}
+              </Sc>
+              <Sc t="Ordered Sqft Tracker">
+                <div style={{fontSize: 10, color: "#6b7280", marginBottom: 6}}>
+                  Includes 2025 carryover orders shipping in 2026 + new 2026 orders.
+                  Update monthly from manufacturing report.</div>
+                <Fd l="Total Ordered Sqft (from mfg report)" v={orderedSf} set={setOrderedSf}
+                  sub="Enter total sqft from monthly report"/>
+                <St l="Sold Sqft (2026 sales)" v={aSf.toLocaleString() + " sf"}/>
+                <St l="Ordered Sqft (mfg report)" v={orderedSf.toLocaleString() + " sf"} c="#5b8af5"/>
+                <St l="PO Install Sqft" v={i26.reduce((a, p) => a + (p.sqft || 0), 0).toLocaleString() + " sf"}/>
+                {orderedSf > 0 && <div style={{marginTop: 6}}>
+                  <BvA l="Ordered vs Crew Capacity" b={tCap} a={orderedSf}/>
+                </div>}
+              </Sc>
+            </div>
+          </Rw>
+        </div>}
+
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
