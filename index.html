@@ -350,6 +350,44 @@ function App() {
   const resetScenario = () => { if(snapshot){setSales(snapshot.sales); setInstLog(snapshot.instLog);} setScenario(false); setSnapshot(null); };
   const stopScenario = () => { resetScenario(); };
 
+  /* ── Undo history (up to 5 actions) ────────────────────────────── */
+  const [undoStack, setUndoStack] = useState([]);
+  const pushUndo = (action) => setUndoStack(p => [...p.slice(-4), action]);
+  const popUndo = async () => {
+    if (undoStack.length === 0) return;
+    const action = undoStack[undoStack.length - 1];
+    setUndoStack(p => p.slice(0, -1));
+    try {
+      if (action.type === 'add_sale' && action.dbId) {
+        await supabase.from('sales').delete().eq('id', action.dbId);
+        setSales(p => p.filter(s => s._dbId !== action.dbId));
+      } else if (action.type === 'delete_sale' && action.row) {
+        const {project_number, name, amount, date, proj_mat, rep, market, rep_project, playground, k9, landscape, golf, sports, misc, sqft, note, year} = action.row;
+        const {data} = await supabase.from('sales').insert([{project_number, name, amount, date, proj_mat, rep, market, rep_project, playground, k9, landscape, golf, sports, misc, sqft, note, year}]).select();
+        if (data && data[0]) {
+          const d = data[0];
+          setSales(p => [...p, {_dbId:d.id, id:d.project_number, name:d.name, a:+d.amount, d:d.date,
+            pm:d.proj_mat, r:d.rep, m:d.market, rp:d.rep_project||'', pg:+d.playground, k9:+d.k9,
+            ls:+d.landscape, gf:+d.golf, sp:+d.sports, ms:+d.misc, sf:+d.sqft, nt:d.note||'', y:d.year}]);
+        }
+      } else if (action.type === 'edit_sale' && action.dbId && action.oldRow) {
+        await supabase.from('sales').update(action.oldRow).eq('id', action.dbId);
+        setSales(p => p.map(s => s._dbId === action.dbId ? {...action.oldLocal} : s));
+      } else if (action.type === 'add_po' && action.dbId) {
+        await supabase.from('install_pos').delete().eq('id', action.dbId);
+        setInstLog(p => p.filter(x => x._dbId !== action.dbId));
+      } else if (action.type === 'delete_po' && action.row) {
+        const {project, sub, amount, sqft, date, note, year} = action.row;
+        const {data} = await supabase.from('install_pos').insert([{project, sub, amount, sqft, date, note, year}]).select();
+        if (data && data[0]) {
+          const d = data[0];
+          setInstLog(p => [...p, {_dbId:d.id, id:'PO-'+d.id, project:d.project, sub:d.sub,
+            amount:+d.amount, sqft:+d.sqft, date:d.date, note:d.note||'', year:d.year}]);
+        }
+      }
+    } catch(err) { alert('Undo failed: ' + err.message); }
+  };
+
   useEffect(() => {
     if (!authed) { setLoading(false); return; }
     async function loadData() {
@@ -468,7 +506,7 @@ function App() {
     { id:'kinsey', name:'Kinsey', role:'STL - Starts Apr 20', market:'STL', base:75000, carType:'monthly', carAmt:500, goal:750000, threshold:500000, bonus:0, moActive:8.4, in401k:false, f401k:0 },
   ];
   const DEF_STAFF = [
-    { id:'caleb', name:'Caleb', role:'Dir of Operations', type:'salary', base:85000, rate:0, hrsWk:0, bonus:0, in401k:true, f401k:1 },
+    { id:'caleb', name:'Caleb', role:'Dir of Ops', type:'salary', base:85000, rate:0, hrsWk:0, bonus:0, in401k:true, f401k:1 },
     { id:'darlene', name:'Darlene', role:'Admin', type:'salary', base:60000, rate:0, hrsWk:0, bonus:2500, in401k:true, f401k:1 },
     { id:'mktpt', name:'Marketing PT', role:'PT Marketing', type:'hourly', base:0, rate:25, hrsWk:30, bonus:0, in401k:false, f401k:0 },
   ];
@@ -731,6 +769,7 @@ function App() {
     const {data, error} = await supabase.from('sales').insert([row]).select();
     if (error) { alert('Save failed: ' + error.message); return; }
     const d = data[0];
+    pushUndo({type:'add_sale', dbId:d.id});
     setSales(p => [...p, {
       _dbId: d.id, id: d.project_number, name: d.name, a: +d.amount, d: d.date,
       pm: d.proj_mat, r: d.rep, m: d.market, rp: d.rep_project || '',
@@ -763,8 +802,11 @@ function App() {
       year: editSale.y
     };
     if (editSale._dbId) {
+      const oldLocal = sales.find(s => s._dbId === editSale._dbId);
+      const {data: oldRows} = await supabase.from('sales').select('*').eq('id', editSale._dbId).single();
       const {error} = await supabase.from('sales').update(row).eq('id', editSale._dbId);
       if (error) { alert('Update failed: ' + error.message); return; }
+      if (oldRows && oldLocal) pushUndo({type:'edit_sale', dbId:editSale._dbId, oldRow:oldRows, oldLocal});
     }
     setSales(p => p.map(s => s._dbId === editSale._dbId ? {...editSale} : s));
     setEditSale(null);
@@ -793,6 +835,7 @@ function App() {
     const {data, error} = await supabase.from('install_pos').insert([row]).select();
     if (error) { alert('Save failed: ' + error.message); return; }
     const d = data[0];
+    pushUndo({type:'add_po', dbId:d.id});
     setInstLog(p => [...p, {
       _dbId: d.id, id: 'PO-' + d.id, project: d.project, sub: d.sub,
       amount: +d.amount, sqft: +d.sqft, date: d.date, note: d.note || '', year: d.year
@@ -998,6 +1041,12 @@ function App() {
             </div>
           </div>
           <div style={{display:'flex', alignItems:'center', gap:10}}>
+            {!scenario && undoStack.length > 0 && <button onClick={popUndo}
+              style={{padding:'5px 14px', borderRadius:5, border:'1px solid #5b8af5',
+                background:'rgba(91,138,245,0.1)', color:'#5b8af5',
+                fontSize:10, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
+                whiteSpace:'nowrap'}}>
+              Undo ({undoStack.length})</button>}
             <button onClick={() => scenario ? stopScenario() : startScenario()}
               style={{padding:'5px 14px', borderRadius:5,
                 border: scenario ? '2px solid #f59e0b' : '1px solid #2a2d38',
@@ -1622,8 +1671,10 @@ function App() {
                           <button onClick={async (e) => {
                             e.stopPropagation();
                             if (s._dbId) {
+                              const {data:old} = await supabase.from('sales').select('*').eq('id', s._dbId).single();
                               const {error} = await supabase.from('sales').delete().eq('id', s._dbId);
                               if (error) { alert('Delete failed: ' + error.message); return; }
+                              if (old) pushUndo({type:'delete_sale', row:old});
                             }
                             setSales(prev => prev.filter(x => x !== s));
                           }} style={{background: "none", border: "none", color: "#f87171",
@@ -1732,8 +1783,10 @@ function App() {
                   <td><button onClick={async () => {
                     const po = i26.sort((a, b) => a.date > b.date ? 1 : -1)[i];
                     if (po && po._dbId) {
+                      const {data:old} = await supabase.from('install_pos').select('*').eq('id', po._dbId).single();
                       const {error} = await supabase.from('install_pos').delete().eq('id', po._dbId);
                       if (error) { alert('Delete failed: ' + error.message); return; }
+                      if (old) pushUndo({type:'delete_po', row:old});
                     }
                     setInstLog(prev => prev.filter(x => x !== po));
                   }} style={{background: "none", border: "none", color: "#f87171",
