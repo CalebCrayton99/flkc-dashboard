@@ -1489,6 +1489,8 @@ function App() {
           </div>
           <div>
             <Sc t="Payroll Summary">
+              <St l="Base Comp (salary + car + bonus)" v={fm(tW + tCar + tBon)}/>
+              <St l="Commissions" v={fm(tCom)}/>
               <St l="Total Comp" v={fm(tComp)}/>
               <St l="Payroll Tax (11%)" v={fm(prTx)}/>
               <St l="401k (3%)" v={fm(c401)}/>
