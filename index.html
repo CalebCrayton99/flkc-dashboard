@@ -444,6 +444,7 @@ function App() {
           if (s.crIns != null) sCrIns(s.crIns);
           if (s.consPsf != null) sConsPsf(s.consPsf);
           if (s.stonePsf != null) sStonePsf(s.stonePsf);
+          if (s.instSfOver !== undefined) setInstSfOver(s.instSfOver);
         }
       } catch(e) { console.warn('Settings load error:', e); }
       setSettingsLoaded(true);
@@ -525,6 +526,7 @@ function App() {
   const [crIns, sCrIns] = useState(12000);
   const [consPsf, sConsPsf] = useState(0.40);
   const [stonePsf, sStonePsf] = useState(0.43);
+  const [instSfOver, setInstSfOver] = useState(null); /* null = use crew-derived calc */
 
   /* ── Auto-save settings to Supabase (debounced, skip in scenario mode) ── */
   useEffect(() => {
@@ -536,13 +538,13 @@ function App() {
         reps, staff, houseGoal, gpm, ptet,
         rent, ins, tech, acct, fcfo, ads, trav, oth, bank, dues, post, txLc, trn, plc,
         crCt, crRt, fmBase, fmBon, crSt, iRt, wkW, tPmt, sPmt, fuel,
-        subRt, clRt, instOn, burdenRt, crIns, consPsf, stonePsf
+        subRt, clRt, instOn, burdenRt, crIns, consPsf, stonePsf, instSfOver
       };
       supabase.from('dashboard_settings').update({data, updated_at: new Date().toISOString()}).eq('id', 1)
         .then(({error}) => { setSaveStatus(error ? 'error' : 'saved'); });
     }, 1500);
     return () => { if(saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [reps, staff, houseGoal, gpm, ptet, rent, ins, tech, acct, fcfo, ads, trav, oth, bank, dues, post, txLc, trn, plc, crCt, crRt, fmBase, fmBon, crSt, iRt, wkW, tPmt, sPmt, fuel, subRt, clRt, instOn, burdenRt, crIns, consPsf, stonePsf, settingsLoaded, authed, scenario]);
+  }, [reps, staff, houseGoal, gpm, ptet, rent, ins, tech, acct, fcfo, ads, trav, oth, bank, dues, post, txLc, trn, plc, crCt, crRt, fmBase, fmBon, crSt, iRt, wkW, tPmt, sPmt, fuel, subRt, clRt, instOn, burdenRt, crIns, consPsf, stonePsf, instSfOver, settingsLoaded, authed, scenario]);
 
   /* ── Form state ────────────────────────────────────────────────── */
   const [showAdd, setShowAdd] = useState(false);
@@ -832,7 +834,9 @@ function App() {
   const sesMo = Math.min(crMo, 9 - (crSt - 3));
   const sesWk = wkW * (Math.max(0, sesMo) / 9);
   const wkDy = sesWk * 5;
-  const tCap = iRt * wkDy;
+  const tCapCalc = iRt * wkDy; /* crew-derived capacity */
+  const tCap = instSfOver !== null ? instSfOver : tCapCalc;
+  const instRev = tCap * clRt; /* install revenue = sqft × client rate */
   const crLabBurd = crCt * crRt * 8 * wkDy * (1 + burdenRt);
   const fmBurd = fmBase * (1 + burdenRt);
   const eqMo = tPmt + sPmt + fuel;
@@ -1342,6 +1346,43 @@ function App() {
             </Sc>
           </div>
           <div>
+            <Sc t="Install Volume & Revenue">
+              <div style={{padding: 10, background: "#0f1117", borderRadius: 7, marginBottom: 10,
+                border: "1px solid #5b8af5"}}>
+                <Sl l="Total Install Sqft" v={Math.round(tCap)} set={v => setInstSfOver(v)}
+                  mn={0} mx={500000} st={1000}
+                  f={v => v.toLocaleString() + " sf"}
+                  sub={instSfOver !== null
+                    ? "Manual override (crew calc: " + Math.round(tCapCalc).toLocaleString() + " sf)"
+                    : "From crew setup: " + Math.round(wkDy) + " days x " + iRt + " sf/day"}/>
+                <Sl l="Total Install Revenue" v={Math.round(instRev)} set={v => {
+                    const sf = clRt > 0 ? Math.round(v / clRt) : 0;
+                    setInstSfOver(sf);
+                  }}
+                  mn={0} mx={3000000} st={5000}
+                  sub={"@ $" + clRt.toFixed(2) + "/sf client rate"}/>
+                <Sl l="Client Rate ($/sf)" v={clRt} set={sClRt} mn={3} mx={10} st={0.01}
+                  f={v => "$" + v.toFixed(2) + "/sf"}
+                  sub="What you charge the client per sqft"/>
+                <Sl l="Sub PO Rate ($/sf)" v={subRt} set={sSubRt} mn={2} mx={8} st={0.01}
+                  f={v => "$" + v.toFixed(2) + "/sf"}
+                  sub="What a sub would charge you"/>
+                {instSfOver !== null && <button onClick={() => setInstSfOver(null)}
+                  style={{marginTop: 4, padding: "4px 12px", borderRadius: 4, border: "1px solid #2a2d38",
+                    background: "none", color: "#5b8af5", fontSize: 9, fontWeight: 600,
+                    cursor: "pointer"}}>Reset to crew-calculated ({Math.round(tCapCalc).toLocaleString()} sf)</button>}
+              </div>
+              <div style={{display: "flex", gap: 8, flexWrap: "wrap"}}>
+                <KP l="Install Sqft" v={Math.round(tCap).toLocaleString()} c="#5b8af5"/>
+                <KP l="Install Revenue" v={fm(instRev)} c="#5b8af5"
+                  sub={"@ $" + clRt.toFixed(2) + "/sf"}/>
+                <KP l="Install COGS" v={fm(tInt)} c="#fbbf24"
+                  sub={"@ $" + iPsf.toFixed(2) + "/sf"}/>
+                <KP l="Install GP" v={fm(instRev - tInt)}
+                  c={instRev - tInt >= 0 ? "#4ade80" : "#f87171"}
+                  sub={instRev > 0 ? fP((instRev - tInt) / instRev) + " margin" : ""}/>
+              </div>
+            </Sc>
             <Sc t="Year 1 Capex">
               <St l="Down payments (20%)" v={fm(tDn)}/>
               <St l="Cash equip + tools" v={fm(sCap)}/>
