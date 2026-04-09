@@ -353,12 +353,42 @@ function App() {
   /* ── Undo history (up to 5 actions) ────────────────────────────── */
   const [undoStack, setUndoStack] = useState([]);
   const pushUndo = (action) => setUndoStack(p => [...p.slice(-4), action]);
+
+  /* Snapshot current settings for slider undo */
+  const settingsSnapRef = React.useRef(null);
+  const snapSettings = () => {
+    if (!settingsSnapRef.current) {
+      settingsSnapRef.current = {reps: JSON.parse(JSON.stringify(reps)), staff: JSON.parse(JSON.stringify(staff)),
+        houseGoal, gpm, ptet, rent, ins, tech, acct, fcfo, ads, trav, oth, bank, dues, post, txLc, trn, plc,
+        crCt, crRt, fmBase, fmBon, crSt, iRt, wkW, tPmt, sPmt, fuel, subRt, clRt, instOn, burdenRt, crIns,
+        consPsf, stonePsf, instSfOver};
+    }
+  };
+  const flushSettingsSnap = () => {
+    if (settingsSnapRef.current) {
+      pushUndo({type:'settings', snap: settingsSnapRef.current});
+      settingsSnapRef.current = null;
+    }
+  };
+
   const popUndo = async () => {
     if (undoStack.length === 0) return;
     const action = undoStack[undoStack.length - 1];
     setUndoStack(p => p.slice(0, -1));
     try {
-      if (action.type === 'add_sale' && action.dbId) {
+      if (action.type === 'settings') {
+        const s = action.snap;
+        setReps(s.reps); setStaff(s.staff); setHouseGoal(s.houseGoal);
+        sGpm(s.gpm); sPtet(s.ptet);
+        sRent(s.rent); sIns(s.ins); sTech(s.tech); sAcct(s.acct); sFcfo(s.fcfo);
+        sAds(s.ads); sTrav(s.trav); sOth(s.oth); sBank(s.bank); sDues(s.dues);
+        sPost(s.post); sTxLc(s.txLc); sTrn(s.trn); sPlc(s.plc);
+        sCrCt(s.crCt); sCrRt(s.crRt); sFmBase(s.fmBase); sFmBon(s.fmBon);
+        sCrSt(s.crSt); sIRt(s.iRt); sWkW(s.wkW); sTPmt(s.tPmt); sSPmt(s.sPmt);
+        sFuel(s.fuel); sSubRt(s.subRt); sClRt(s.clRt); setInstOn(s.instOn);
+        sBurdenRt(s.burdenRt); sCrIns(s.crIns); sConsPsf(s.consPsf);
+        sStonePsf(s.stonePsf); setInstSfOver(s.instSfOver);
+      } else if (action.type === 'add_sale' && action.dbId) {
         await supabase.from('sales').delete().eq('id', action.dbId);
         setSales(p => p.filter(s => s._dbId !== action.dbId));
       } else if (action.type === 'delete_sale' && action.row) {
@@ -569,9 +599,11 @@ function App() {
   /* ── Auto-save settings to Supabase (debounced, skip in scenario mode) ── */
   useEffect(() => {
     if (!settingsLoaded || !authed || scenario) return;
+    snapSettings(); /* capture state before this batch of changes */
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     setSaveStatus('saving');
     saveTimerRef.current = setTimeout(() => {
+      flushSettingsSnap(); /* push one undo entry for the whole batch */
       const data = {
         reps, staff, houseGoal, gpm, ptet,
         rent, ins, tech, acct, fcfo, ads, trav, oth, bank, dues, post, txLc, trn, plc,
@@ -978,7 +1010,7 @@ function App() {
       <div style={{background:'#181b23', borderRadius:12, padding:'32px 36px',
         border:'1px solid #2a2d38', textAlign:'center', maxWidth:340, width:'100%'}}>
         <h1 style={{margin:'0 0 6px', fontSize:18, fontWeight:800, color:'#e8eaed'}}>FLKC Dashboard</h1>
-        <div style={{fontSize:10, color:'#6b7280', marginBottom:20}}>ForeverLawn STL / KC</div>
+        <div style={{fontSize:10, color:'#6b7280', marginBottom:20}}>ForeverLawn KC | DSM | STL</div>
         <input type="password" placeholder="Password" value={pwInput}
           onChange={e => { setPwInput(e.target.value); setPwErr(false); }}
           onKeyDown={e => { if (e.key === 'Enter') handleLogin(); }}
@@ -1035,10 +1067,7 @@ function App() {
               {saveStatus === 'saved' && <span style={{fontSize:9, color:'#4ade80', marginLeft:6}}>Saved</span>}
               {saveStatus === 'error' && <span style={{fontSize:9, color:'#f87171', marginLeft:6}}>Save failed</span>}
             </h1>
-            <div style={{fontSize: 10, color: "#6b7280", marginTop: 1}}>ForeverLawn STL / KC &mdash; Caleb Crayton
-              <span style={{marginLeft:8, fontSize:9, color:'#6b7280', fontStyle:'italic'}}>
-                Sliders &amp; inputs are planning tools — always temporary</span>
-            </div>
+            <div style={{fontSize: 10, color: "#6b7280", marginTop: 1}}>ForeverLawn KC | DSM | STL &mdash; Caleb Crayton</div>
           </div>
           <div style={{display:'flex', alignItems:'center', gap:10}}>
             {!scenario && undoStack.length > 0 && <button onClick={popUndo}
@@ -1055,10 +1084,14 @@ function App() {
                 fontSize:10, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
                 whiteSpace:'nowrap'}}>
               Scenario: {scenario ? 'ON' : 'OFF'}</button>
-            <div style={{fontSize: 10, color: "#6b7280", textAlign: "right"}}>
-              Install Div: <span style={{color: instOn ? "#4ade80" : "#f87171", fontWeight: 600}}>
-                {instOn ? "ON" : "OFF"}</span>
-            </div>
+            <button onClick={() => setInstOn(!instOn)}
+              style={{padding:'5px 14px', borderRadius:5,
+                border: instOn ? '2px solid #4ade80' : '2px solid #f87171',
+                background: instOn ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)',
+                color: instOn ? '#4ade80' : '#f87171',
+                fontSize:10, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
+                whiteSpace:'nowrap'}}>
+              Install Div: {instOn ? 'ON' : 'OFF'}</button>
             <button onClick={handleLogout}
               style={{padding:'4px 10px', borderRadius:4, border:'1px solid #2a2d38',
                 background:'none', color:'#6b7280', fontSize:9, cursor:'pointer',
@@ -2054,7 +2087,7 @@ function App() {
             <div style={{textAlign: "center", flex: 1}}>
               <h2 style={{margin: 0, fontSize: 17, fontWeight: 800}}>2026 Executive Summary</h2>
               <div style={{fontSize: 10, color: "#6b7280", marginTop: 3}}>
-                Goal vs Actual &mdash; ForeverLawn KC / STL</div>
+                Goal vs Actual &mdash; ForeverLawn KC | DSM | STL</div>
             </div>
             <button onClick={printDashboard} className="no-print"
               style={{padding: "5px 14px", borderRadius: 5, border: "1px solid #2a2d38",
