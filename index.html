@@ -1048,11 +1048,34 @@ function App() {
   const sCap = 25343 + 7498;
   const yr1C = tDn + sCap;
 
-  /* Company-wide */
+  /* Company-wide (model-only, no actuals) */
   const companyNOI = gp - tExp + (instOn ? intSv : 0);
   const companyPtet = Math.max(0, companyNOI * ptet);
   const companyNI = companyNOI - companyPtet;
   const companyNM = tRev > 0 ? companyNI / tRev : 0;
+
+  /* ── Blended Forecast (actuals + projections) ──────────────────── */
+  const plMoCount = plData ? plData.length : 0;
+  const remainMo = Math.max(0, 12 - plMoCount);
+  const plActRev = plData ? plData.reduce((a, m) => a + m.revenue, 0) : 0;
+  const plActCogs = plData ? plData.reduce((a, m) => a + m.cogs, 0) : 0;
+  const plActGP = plActRev - plActCogs;
+  const plActExp = plData ? plData.reduce((a, m) => a + m.expenses, 0) : 0;
+  const plActGPM = plActRev > 0 ? plActGP / plActRev : gpm;
+  /* Project remaining months using model rates */
+  const projMonthlyRev = tRev / 12;
+  const projMonthlyCogs = (tRev - gp) / 12;
+  const projMonthlyExp = tExp / 12;
+  const bRevFull = plData ? plActRev + (projMonthlyRev * remainMo) : tRev;
+  const bCogsFull = plData ? plActCogs + (projMonthlyCogs * remainMo) : tRev - gp;
+  const bGPFull = bRevFull - bCogsFull;
+  const bExpFull = plData ? plActExp + (projMonthlyExp * remainMo) : tExp;
+  const bGPMFull = bRevFull > 0 ? bGPFull / bRevFull : gpm;
+  const bNOIFull = bGPFull - bExpFull + (instOn ? intSv : 0);
+  const bPtetFull = Math.max(0, bNOIFull * ptet);
+  const bNIFull = bNOIFull - bPtetFull;
+  const bNMFull = bRevFull > 0 ? bNIFull / bRevFull : 0;
+  const hasBlend = plData && plMoCount > 0;
 
   /* Actuals from sales log */
   const s26 = sales.filter(s => s.y === 2026);
@@ -1218,15 +1241,18 @@ function App() {
           </div>
         </div>
         <div style={{display: "flex", gap: 8, flexWrap: "wrap"}}>
-          <KP l="Revenue Goal" v={fm(tRev)} sub="Based on rep sales goals"/>
+          <KP l="Revenue Goal" v={fm(tRev)} sub={hasBlend ? "Blended: " + fm(bRevFull) + " (" + plMoCount + "mo actual + " + remainMo + "mo proj)" : "Based on rep sales goals"}/>
           <KP l="Actual YTD Sales" v={fm(aTot)} c="#5b8af5"
             sub={fP(tRev > 0 ? aTot / tRev : 0) + " of goal | " + s26.length + " projects"}/>
-          <KP l="Net Income (Company)" v={fm(companyNI)}
-            c={companyNI >= 0 ? "#4ade80" : "#f87171"}
-            sub={fP(companyNM) + " margin" + (instOn ? " (incl install div)" : "")}/>
+          <KP l={hasBlend ? "Net Income (Blended)" : "Net Income (Model)"}
+            v={fm(hasBlend ? bNIFull : companyNI)}
+            c={(hasBlend ? bNIFull : companyNI) >= 0 ? "#4ade80" : "#f87171"}
+            sub={fP(hasBlend ? bNMFull : companyNM) + " margin" + (instOn ? " (incl install div)" : "") + (hasBlend ? " | Model: " + fm(companyNI) : "")}/>
           <KP l="Breakeven" v={fm(beRev)}
             c={tRev >= beRev ? "#4ade80" : "#f87171"}
             sub={tRev >= beRev ? fK(tRev - beRev) + " above" : fK(beRev - tRev) + " below"}/>
+          {hasBlend && <KP l="Actual GPM" v={fP(plActGPM)} c={plActGPM >= 0.26 ? "#4ade80" : plActGPM >= 0.15 ? "#fbbf24" : "#f87171"}
+            sub={plMoCount + " months | Model: " + fP(gpm)}/>}
         </div>
       </div>
 
@@ -1299,21 +1325,27 @@ function App() {
                 <span style={{fontFamily: M, color: "#5b8af5"}}>{fm(tExp)}</span>
               </div>
             </Sc>
-            <Sc t="P&L Waterfall">
-              <Br l="Revenue" v={tRev} mx={tRev} c="#5b8af5"/>
-              <Br l="COGS" v={tRev - gp} mx={tRev} c="#f87171"/>
-              <Br l="Gross Profit (base)" v={gp} mx={tRev} c="#4ade80"/>
-              <Br l="Payroll (core)" v={tPay} mx={gp} c="#fbbf24"/>
-              <Br l="Non-Payroll OH" v={tOH} mx={gp} c="#f59e0b"/>
+            <Sc t={hasBlend ? "P&L Waterfall (Blended: " + plMoCount + "mo actual + " + remainMo + "mo model)" : "P&L Waterfall (Model)"}>
+              <Br l="Revenue" v={hasBlend ? bRevFull : tRev} mx={Math.max(tRev, hasBlend ? bRevFull : 0)} c="#5b8af5"/>
+              <Br l="COGS" v={hasBlend ? bCogsFull : tRev - gp} mx={Math.max(tRev, hasBlend ? bRevFull : 0)} c="#f87171"/>
+              <Br l={"Gross Profit (" + fP(hasBlend ? bGPMFull : gpm) + ")"} v={hasBlend ? bGPFull : gp} mx={Math.max(tRev, hasBlend ? bRevFull : 0)} c="#4ade80"/>
+              <Br l="Payroll (core)" v={tPay} mx={hasBlend ? bGPFull : gp} c="#fbbf24"/>
+              <Br l="Non-Payroll OH" v={tOH} mx={hasBlend ? bGPFull : gp} c="#f59e0b"/>
               {instOn && <Br l={"Install Div Savings (" + Math.round(tCap).toLocaleString() + " sf)"}
-                v={Math.max(0, intSv)} mx={gp} c="#22d3ee"/>}
+                v={Math.max(0, intSv)} mx={hasBlend ? bGPFull : gp} c="#22d3ee"/>}
               <div style={{marginTop: 4, padding: "7px 10px", background: "#181b23", borderRadius: 6,
-                border: "1px solid " + (companyNI >= 0 ? "#4ade80" : "#f87171"),
+                border: "1px solid " + ((hasBlend ? bNIFull : companyNI) >= 0 ? "#4ade80" : "#f87171"),
                 display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 12}}>
-                <span>Net Income {instOn ? "(w/ Install)" : "(Core)"}</span>
-                <span style={{fontFamily: M, color: companyNI >= 0 ? "#4ade80" : "#f87171"}}>
-                  {fm(companyNI)}</span>
+                <span>Net Income {hasBlend ? "(Blended)" : instOn ? "(w/ Install)" : "(Core)"}</span>
+                <span style={{fontFamily: M, color: (hasBlend ? bNIFull : companyNI) >= 0 ? "#4ade80" : "#f87171"}}>
+                  {fm(hasBlend ? bNIFull : companyNI)}</span>
               </div>
+              {hasBlend && <div style={{marginTop: 6, fontSize: 9, color: "#6b7280", padding: "6px 8px",
+                background: "#0f1117", borderRadius: 5}}>
+                <div>Actual ({plMoCount}mo): Rev {fm(plActRev)} | GP {fm(plActGP)} ({fP(plActGPM)}) | Exp {fm(plActExp)}</div>
+                <div>Model ({remainMo}mo): Rev {fm(projMonthlyRev * remainMo)} | GP {fm((gp/12) * remainMo)} ({fP(gpm)}) | Exp {fm(projMonthlyExp * remainMo)}</div>
+                <div style={{marginTop: 2, color: "#5b8af5"}}>Model-only NI: {fm(companyNI)} | Blended NI: {fm(bNIFull)}</div>
+              </div>}
             </Sc>
             <Sc t="Install Division">
               <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8}}>
