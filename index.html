@@ -597,8 +597,11 @@ function App() {
   const [instSfOver, setInstSfOver] = useState(null); /* null = use crew-derived calc */
 
   /* ── Auto-save settings to Supabase (debounced, skip in scenario mode) ── */
+  const saveInitRef = React.useRef(false);
   useEffect(() => {
     if (!settingsLoaded || !authed || scenario) return;
+    /* Skip the first run (initial load sets all values, that's not a user change) */
+    if (!saveInitRef.current) { saveInitRef.current = true; return; }
     snapSettings(); /* capture state before this batch of changes */
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     setSaveStatus('saving');
