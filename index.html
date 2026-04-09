@@ -402,24 +402,95 @@ function App() {
         setDbError(err.message);
         setSales(SEED_FALLBACK);
       }
+      /* Load saved settings */
+      try {
+        const {data: settingsData} = await supabase
+          .from('dashboard_settings').select('data').eq('id', 1).single();
+        if (settingsData && settingsData.data && Object.keys(settingsData.data).length > 0) {
+          const s = settingsData.data;
+          if (s.reps) setReps(s.reps);
+          if (s.staff) setStaff(s.staff);
+          if (s.houseGoal != null) setHouseGoal(s.houseGoal);
+          if (s.gpm != null) sGpm(s.gpm);
+          if (s.ptet != null) sPtet(s.ptet);
+          if (s.rent != null) sRent(s.rent);
+          if (s.ins != null) sIns(s.ins);
+          if (s.tech != null) sTech(s.tech);
+          if (s.acct != null) sAcct(s.acct);
+          if (s.fcfo != null) sFcfo(s.fcfo);
+          if (s.ads != null) sAds(s.ads);
+          if (s.trav != null) sTrav(s.trav);
+          if (s.oth != null) sOth(s.oth);
+          if (s.bank != null) sBank(s.bank);
+          if (s.dues != null) sDues(s.dues);
+          if (s.post != null) sPost(s.post);
+          if (s.txLc != null) sTxLc(s.txLc);
+          if (s.trn != null) sTrn(s.trn);
+          if (s.plc != null) sPlc(s.plc);
+          if (s.crCt != null) sCrCt(s.crCt);
+          if (s.crRt != null) sCrRt(s.crRt);
+          if (s.fmBase != null) sFmBase(s.fmBase);
+          if (s.fmBon != null) sFmBon(s.fmBon);
+          if (s.crSt != null) sCrSt(s.crSt);
+          if (s.iRt != null) sIRt(s.iRt);
+          if (s.wkW != null) sWkW(s.wkW);
+          if (s.tPmt != null) sTPmt(s.tPmt);
+          if (s.sPmt != null) sSPmt(s.sPmt);
+          if (s.fuel != null) sFuel(s.fuel);
+          if (s.subRt != null) sSubRt(s.subRt);
+          if (s.clRt != null) sClRt(s.clRt);
+          if (s.instOn != null) setInstOn(s.instOn);
+          if (s.burdenRt != null) sBurdenRt(s.burdenRt);
+          if (s.crIns != null) sCrIns(s.crIns);
+          if (s.consPsf != null) sConsPsf(s.consPsf);
+          if (s.stonePsf != null) sStonePsf(s.stonePsf);
+        }
+      } catch(e) { console.warn('Settings load error:', e); }
+      setSettingsLoaded(true);
+
       setLoading(false);
     }
     loadData();
   }, [authed]);
+
+  /* ── Auto-save settings to Supabase (debounced, skip in scenario mode) ── */
+  const saveTimerRef = React.useRef(null);
+  const [saveStatus, setSaveStatus] = useState(null); /* null, 'saving', 'saved', 'error' */
+  useEffect(() => {
+    if (!settingsLoaded || !authed || scenario) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setSaveStatus('saving');
+    saveTimerRef.current = setTimeout(() => {
+      const data = {
+        reps, staff, houseGoal, gpm, ptet,
+        rent, ins, tech, acct, fcfo, ads, trav, oth, bank, dues, post, txLc, trn, plc,
+        crCt, crRt, fmBase, fmBon, crSt, iRt, wkW, tPmt, sPmt, fuel,
+        subRt, clRt, instOn, burdenRt, crIns, consPsf, stonePsf
+      };
+      supabase.from('dashboard_settings').update({data, updated_at: new Date().toISOString()}).eq('id', 1)
+        .then(({error}) => { setSaveStatus(error ? 'error' : 'saved'); });
+    }, 1500);
+    return () => { if(saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [reps, staff, houseGoal, gpm, ptet, rent, ins, tech, acct, fcfo, ads, trav, oth, bank, dues, post, txLc, trn, plc, crCt, crRt, fmBase, fmBon, crSt, iRt, wkW, tPmt, sPmt, fuel, subRt, clRt, instOn, burdenRt, crIns, consPsf, stonePsf, settingsLoaded, authed, scenario]);
+
   const [expanded, setExpanded] = useState({});
   const toggleExp = i => setExpanded(p => ({...p, [i]: !p[i]}));
 
-  /* ── Budget inputs ─────────────────────────────────────────────── */
-  const [reps, setReps] = useState([
+  /* ── Default values (used if no saved settings) ────────────────── */
+  const DEF_REPS = [
     { id:'jordan', name:'Jordan', role:'DSM - Full Year', market:'DSM', base:60000, carType:'annual', carAmt:6000, goal:1500000, threshold:500000, bonus:15000, moActive:12, in401k:true, f401k:1 },
     { id:'david', name:'David', role:'KC - Year 1', market:'KC', base:60000, carType:'annual', carAmt:6000, goal:1000000, threshold:250000, bonus:0, moActive:12, in401k:true, f401k:0.667 },
     { id:'kinsey', name:'Kinsey', role:'STL - Starts Apr 20', market:'STL', base:75000, carType:'monthly', carAmt:500, goal:750000, threshold:500000, bonus:0, moActive:8.4, in401k:false, f401k:0 },
-  ]);
-  const [staff, setStaff] = useState([
+  ];
+  const DEF_STAFF = [
     { id:'caleb', name:'Caleb', role:'Owner/GM', type:'salary', base:85000, rate:0, hrsWk:0, bonus:0, in401k:true, f401k:1 },
     { id:'darlene', name:'Darlene', role:'Admin', type:'salary', base:60000, rate:0, hrsWk:0, bonus:2500, in401k:true, f401k:1 },
     { id:'mktpt', name:'Marketing PT', role:'PT Marketing', type:'hourly', base:0, rate:25, hrsWk:30, bonus:0, in401k:false, f401k:0 },
-  ]);
+  ];
+
+  /* ── Budget inputs ─────────────────────────────────────────────── */
+  const [reps, setReps] = useState(DEF_REPS);
+  const [staff, setStaff] = useState(DEF_STAFF);
   const [houseGoal, setHouseGoal] = useState(750000);
   const aS = 39476;
   const [gpm, sGpm] = useState(0.26);
@@ -911,6 +982,9 @@ function App() {
             <h1 style={{margin: 0, fontSize: 16, fontWeight: 800}}>FLKC 2026 Business Model
               <span style={{fontSize:9, color: dbError ? '#f87171' : '#4ade80', marginLeft:8, fontWeight:500}}>
                 {dbError ? 'Local mode' : 'Cloud sync'}</span>
+              {saveStatus === 'saving' && <span style={{fontSize:9, color:'#fbbf24', marginLeft:6}}>Saving...</span>}
+              {saveStatus === 'saved' && <span style={{fontSize:9, color:'#4ade80', marginLeft:6}}>Saved</span>}
+              {saveStatus === 'error' && <span style={{fontSize:9, color:'#f87171', marginLeft:6}}>Save failed</span>}
             </h1>
             <div style={{fontSize: 10, color: "#6b7280", marginTop: 1}}>ForeverLawn STL / KC &mdash; Caleb Crayton
               <span style={{marginLeft:8, fontSize:9, color:'#6b7280', fontStyle:'italic'}}>
