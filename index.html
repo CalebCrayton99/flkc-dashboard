@@ -626,6 +626,11 @@ function App() {
   const [slFiltMkt, setSlFiltMkt] = useState("All");
   const [orderedSf, setOrderedSf] = useState(0);
 
+  /* ── WIP & P&L state ──────────────────────────────────────────── */
+  const [wipData, setWipData] = useState(null);
+  const [wipDate, setWipDate] = useState('');
+  const [plData, setPlData] = useState(null);
+
   /* ── Job Costing state ─────────────────────────────────────────── */
   const [jobCosts, setJobCosts] = useState([]);
   const [jcProj, setJcProj] = useState("");
@@ -760,8 +765,119 @@ function App() {
     exportCSV(rows, headers, "FLKC_Install_POs_2026.csv");
   };
   const printDashboard = () => {
-    setTab(7);
+    setTab(9);
     setTimeout(() => window.print(), 300);
+  };
+
+  /* ── WIP parser ─────────────────────────────────────────────────── */
+  const parseWIP = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const wb = XLSX.read(e.target.result, {type: 'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const dateCell = ws['B4'];
+      setWipDate(dateCell ? dateCell.v : '');
+      const projects = [];
+      for (let r = 9; r <= 90; r++) {
+        const bCell = ws['B' + r];
+        if (!bCell || !bCell.v) continue;
+        const name = String(bCell.v).trim();
+        if (!name || name === 'Formulas' || name.startsWith('Total')) continue;
+        const getNum = (col) => {
+          const cell = ws[col + r];
+          if (!cell) return 0;
+          const v = cell.v;
+          if (typeof v === 'number') return v;
+          if (typeof v === 'string') {
+            const s = v.trim();
+            if (s === '-' || s === '- ' || s === ' - ' || s === '') return 0;
+            const n = parseFloat(s);
+            return isNaN(n) ? 0 : n;
+          }
+          return 0;
+        };
+        projects.push({
+          name,
+          contractPrice: getNum('G'),
+          origBudget: getNum('H'),
+          currentBudget: getNum('J'),
+          actualCost: getNum('K'),
+          remainBudget: getNum('L'),
+          estCostToComplete: getNum('M'),
+          bestEstCost: getNum('N'),
+          estFinalGP: getNum('Q'),
+          origGPpct: getNum('R'),
+          finalGPpct: getNum('T'),
+          costSlip: getNum('U'),
+          pctComplete: getNum('V'),
+          earnedGP: getNum('W'),
+          totalInvoiced: getNum('Z'),
+          overbilled: getNum('AA'),
+          underbilled: getNum('AB'),
+          remainingContract: getNum('AC'),
+          remainingCosts: getNum('AD'),
+          workingCapital: getNum('AE'),
+        });
+      }
+      setWipData(projects);
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  /* ── P&L parser ────────────────────────────────────────────────── */
+  const parsePL = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const wb = XLSX.read(e.target.result, {type: 'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const months = [];
+      for (let c = 1; c <= 12; c++) {
+        const col = String.fromCharCode(65 + c);
+        const cell = ws[col + '5'];
+        if (cell && cell.v) months.push({col, label: String(cell.v)});
+      }
+      const getVal = (col, row) => {
+        const cell = ws[col + row];
+        if (!cell) return 0;
+        const v = cell.v;
+        if (typeof v === 'number') return v;
+        if (typeof v === 'string') {
+          if (v.startsWith('==')) {
+            const numPart = v.substring(2);
+            if (/^-?[\d.]+$/.test(numPart.trim())) {
+              const n = parseFloat(numPart);
+              return isNaN(n) ? 0 : n;
+            }
+            return 0;
+          }
+          return 0;
+        }
+        return 0;
+      };
+      const data = months.map(m => {
+        let incomeCalc = 0;
+        for (let r = 7; r <= 22; r++) incomeCalc += getVal(m.col, r);
+        let cogsCalc = 0;
+        for (let r = 25; r <= 36; r++) cogsCalc += getVal(m.col, r);
+        let expCalc = 0;
+        for (let r = 40; r <= 98; r++) expCalc += getVal(m.col, r);
+        const gpCalc = incomeCalc - cogsCalc;
+        const niCalc = gpCalc - expCalc;
+        const gpmCalc = incomeCalc > 0 ? gpCalc / incomeCalc : 0;
+        return {
+          month: m.label,
+          revenue: incomeCalc,
+          cogs: cogsCalc,
+          gp: gpCalc,
+          gpm: gpmCalc,
+          expenses: expCalc,
+          netIncome: niCalc,
+          nim: incomeCalc > 0 ? niCalc / incomeCalc : 0,
+        };
+      }).filter(m => m.revenue !== 0 || m.cogs !== 0);
+      setPlData(data);
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   const addSale = async () => {
@@ -945,7 +1061,7 @@ function App() {
   const aTot = s26.reduce((a, s) => a + s.a, 0);
   const aSf = s26.reduce((a, s) => a + (s.sf || 0), 0);
   const i26 = instLog.filter(i => i.year === 2026);
-  const tabs = ["Overview", "Team", "Reps", "Install", "Sales Log", "Install Log", "Job Costing", "Dashboard"];
+  const tabs = ["Overview", "Team", "Reps", "Install", "Sales Log", "Install Log", "Job Costing", "WIP", "P&L Actuals", "Dashboard"];
   const mN = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   /* Rep card component */
@@ -2081,8 +2197,243 @@ function App() {
           </div>;
         })()}
 
-        {/* ═══ TAB 7: EXECUTIVE DASHBOARD ═══ */}
-        {tab === 7 && <div id="dashboard-print">
+        {/* ═══ TAB 7: WIP ═══ */}
+        {tab === 7 && <div>
+          <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16}}>
+            <h2 style={{margin: 0, fontSize: 17, fontWeight: 800}}>WIP Report</h2>
+            <label style={{padding: "6px 16px", borderRadius: 6, background: "#5b8af5", color: "#fff",
+              fontSize: 11, fontWeight: 700, cursor: "pointer"}}>
+              Upload WIP Report (.xlsx)
+              <input type="file" accept=".xlsx,.xls" style={{display: "none"}}
+                onChange={e => { if(e.target.files[0]) parseWIP(e.target.files[0]); }}/>
+            </label>
+          </div>
+          {wipDate && <div style={{fontSize: 10, color: "#6b7280", marginBottom: 12}}>Report Date: {wipDate}</div>}
+          {!wipData && <div style={{textAlign: "center", padding: 40, color: "#6b7280", fontSize: 12}}>
+            Upload a WIP report (.xlsx) to see project-level financial data.</div>}
+          {wipData && (() => {
+            const sumField = (f) => wipData.reduce((a, p) => a + p[f], 0);
+            const totalContract = sumField('contractPrice');
+            const totalCostToDate = sumField('actualCost');
+            const totalEstFinalGP = sumField('estFinalGP');
+            const totalOverbilled = sumField('overbilled');
+            const totalUnderbilled = sumField('underbilled');
+            const totalBacklog = sumField('workingCapital');
+            const slipped = wipData.filter(p => p.costSlip < 0);
+            const overBilledProj = wipData.filter(p => p.overbilled > 5000);
+            const underBilledProj = wipData.filter(p => p.underbilled > 5000);
+            return <div>
+              <div style={{display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16}}>
+                <KP l="Total Contract Value" v={fm(totalContract)}/>
+                <KP l="Total Cost to Date" v={fm(totalCostToDate)} c="#fbbf24"/>
+                <KP l="Est Final GP" v={fm(totalEstFinalGP)} c={totalEstFinalGP >= 0 ? "#4ade80" : "#f87171"}/>
+                <KP l="Total Overbilled" v={fm(totalOverbilled)} c="#fbbf24"/>
+                <KP l="Total Underbilled" v={fm(totalUnderbilled)} c="#5b8af5"/>
+                <KP l="Backlog Working Capital" v={fm(totalBacklog)}/>
+              </div>
+              <Sc t="Project Details">
+                <div style={{overflowX: "auto"}}>
+                  <table style={{width: "100%", borderCollapse: "collapse", fontSize: 10}}>
+                    <thead>
+                      <tr style={{borderBottom: "2px solid #2a2d38"}}>
+                        <th style={{padding: "5px 6px", textAlign: "left", color: "#6b7280", fontSize: 9}}>Project</th>
+                        <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Contract $</th>
+                        <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Budget</th>
+                        <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Actual Cost</th>
+                        <th style={{padding: "5px 6px", textAlign: "center", color: "#6b7280", fontSize: 9, minWidth: 80}}>% Complete</th>
+                        <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Est Final GP</th>
+                        <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>GP Slip</th>
+                        <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Over/Under</th>
+                        <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Remaining</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {wipData.map((p, i) => {
+                        const gpColor = p.finalGPpct >= 0.20 ? "#4ade80" : p.finalGPpct >= 0.10 ? "#fbbf24" : "#f87171";
+                        const slipColor = p.costSlip < 0 ? "#f87171" : "#4ade80";
+                        const billing = p.overbilled > 0 ? {val: p.overbilled, color: "#fbbf24", label: "Over"}
+                          : p.underbilled > 0 ? {val: p.underbilled, color: "#5b8af5", label: "Under"} : {val: 0, color: "#6b7280", label: "-"};
+                        return <tr key={i} style={{borderBottom: "1px solid #2a2d38"}}>
+                          <td style={{padding: "5px 6px", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"}}>{p.name}</td>
+                          <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M}}>{fm(p.contractPrice)}</td>
+                          <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M}}>{fm(p.currentBudget)}</td>
+                          <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M}}>{fm(p.actualCost)}</td>
+                          <td style={{padding: "5px 6px"}}>
+                            <div style={{display: "flex", alignItems: "center", gap: 4}}>
+                              <div style={{flex: 1, height: 6, background: "#2a2d38", borderRadius: 3}}>
+                                <div style={{height: "100%", width: Math.min(p.pctComplete * 100, 100) + "%",
+                                  background: "#5b8af5", borderRadius: 3}}/>
+                              </div>
+                              <span style={{fontFamily: M, fontSize: 9, minWidth: 32, textAlign: "right"}}>{(p.pctComplete * 100).toFixed(0)}%</span>
+                            </div>
+                          </td>
+                          <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M, color: gpColor}}>
+                            {fm(p.estFinalGP)} <span style={{fontSize: 8}}>({(p.finalGPpct * 100).toFixed(1)}%)</span>
+                          </td>
+                          <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M, color: slipColor}}>
+                            {(p.costSlip * 100).toFixed(1)}%
+                          </td>
+                          <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M, color: billing.color}}>
+                            {billing.val > 0 ? billing.label + " " + fm(billing.val) : "-"}
+                          </td>
+                          <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M}}>{fm(p.remainingCosts)}</td>
+                        </tr>;
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </Sc>
+              <Rw>
+                <div>
+                  {slipped.length > 0 && <Sc t={"GP Slippage (" + slipped.length + " projects)"}>
+                    {slipped.sort((a, b) => a.costSlip - b.costSlip).map((p, i) =>
+                      <div key={i} style={{display: "flex", justifyContent: "space-between", padding: "4px 0",
+                        borderBottom: "1px solid #2a2d38", fontSize: 11}}>
+                        <span style={{color: "#e8eaed", maxWidth: "60%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"}}>{p.name}</span>
+                        <span style={{fontFamily: M, color: "#f87171", fontWeight: 600}}>{(p.costSlip * 100).toFixed(1)}%</span>
+                      </div>
+                    )}
+                  </Sc>}
+                </div>
+                <div>
+                  {overBilledProj.length > 0 && <Sc t={"Overbilled — Cash Flow Risk (" + overBilledProj.length + ")"}>
+                    {overBilledProj.sort((a, b) => b.overbilled - a.overbilled).map((p, i) =>
+                      <div key={i} style={{display: "flex", justifyContent: "space-between", padding: "4px 0",
+                        borderBottom: "1px solid #2a2d38", fontSize: 11}}>
+                        <span style={{color: "#e8eaed", maxWidth: "60%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"}}>{p.name}</span>
+                        <span style={{fontFamily: M, color: "#fbbf24", fontWeight: 600}}>{fm(p.overbilled)}</span>
+                      </div>
+                    )}
+                  </Sc>}
+                  {underBilledProj.length > 0 && <Sc t={"Underbilled — Need to Invoice (" + underBilledProj.length + ")"}>
+                    {underBilledProj.sort((a, b) => b.underbilled - a.underbilled).map((p, i) =>
+                      <div key={i} style={{display: "flex", justifyContent: "space-between", padding: "4px 0",
+                        borderBottom: "1px solid #2a2d38", fontSize: 11}}>
+                        <span style={{color: "#e8eaed", maxWidth: "60%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"}}>{p.name}</span>
+                        <span style={{fontFamily: M, color: "#5b8af5", fontWeight: 600}}>{fm(p.underbilled)}</span>
+                      </div>
+                    )}
+                  </Sc>}
+                </div>
+              </Rw>
+            </div>;
+          })()}
+        </div>}
+
+        {/* ═══ TAB 8: P&L ACTUALS ═══ */}
+        {tab === 8 && <div>
+          <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16}}>
+            <h2 style={{margin: 0, fontSize: 17, fontWeight: 800}}>P&L Actuals</h2>
+            <label style={{padding: "6px 16px", borderRadius: 6, background: "#5b8af5", color: "#fff",
+              fontSize: 11, fontWeight: 700, cursor: "pointer"}}>
+              Upload P&L (.xlsx)
+              <input type="file" accept=".xlsx,.xls" style={{display: "none"}}
+                onChange={e => { if(e.target.files[0]) parsePL(e.target.files[0]); }}/>
+            </label>
+          </div>
+          {!plData && <div style={{textAlign: "center", padding: 40, color: "#6b7280", fontSize: 12}}>
+            Upload a Profit & Loss report (.xlsx) to see monthly actuals and budget comparison.</div>}
+          {plData && plData.length > 0 && (() => {
+            const ytdRev = plData.reduce((a, m) => a + m.revenue, 0);
+            const ytdCogs = plData.reduce((a, m) => a + m.cogs, 0);
+            const ytdGP = ytdRev - ytdCogs;
+            const ytdGPM = ytdRev > 0 ? ytdGP / ytdRev : 0;
+            const ytdExp = plData.reduce((a, m) => a + m.expenses, 0);
+            const ytdNI = ytdGP - ytdExp;
+            const moCount = plData.length;
+            const monthlyBurn = moCount > 0 ? ytdExp / moCount : 0;
+            const beRevMonthly = ytdGPM > 0 ? monthlyBurn / ytdGPM : 0;
+            const annualizedRev = moCount > 0 ? (ytdRev / moCount) * 12 : 0;
+            const annualizedGP = moCount > 0 ? (ytdGP / moCount) * 12 : 0;
+            const annualizedExp = moCount > 0 ? (ytdExp / moCount) * 12 : 0;
+            const annualizedNI = moCount > 0 ? (ytdNI / moCount) * 12 : 0;
+            return <div>
+              <div style={{display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16}}>
+                <KP l="YTD Revenue" v={fm(ytdRev)} c="#5b8af5"/>
+                <KP l="YTD GP%" v={fP(ytdGPM)} c={ytdGPM >= 0.26 ? "#4ade80" : ytdGPM >= 0.15 ? "#fbbf24" : "#f87171"}/>
+                <KP l="YTD Net Income" v={fm(ytdNI)} c={ytdNI >= 0 ? "#4ade80" : "#f87171"}/>
+                <KP l="Monthly Burn Rate" v={fm(monthlyBurn)} c="#fbbf24"/>
+                <KP l="Breakeven Rev/Mo" v={fm(beRevMonthly)} sub="at actual GPM"/>
+              </div>
+
+              <Sc t="Monthly P&L">
+                <div style={{overflowX: "auto"}}>
+                  <table style={{width: "100%", borderCollapse: "collapse", fontSize: 10}}>
+                    <thead>
+                      <tr style={{borderBottom: "2px solid #2a2d38"}}>
+                        <th style={{padding: "5px 6px", textAlign: "left", color: "#6b7280", fontSize: 9, position: "sticky", left: 0, background: "#0f1117"}}>Metric</th>
+                        {plData.map((m, i) => <th key={i} style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9, minWidth: 70}}>{m.month}</th>)}
+                        <th style={{padding: "5px 6px", textAlign: "right", color: "#5b8af5", fontSize: 9, fontWeight: 700, minWidth: 80}}>YTD</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        {label: "Revenue", key: "revenue", fmt: fm, colorFn: () => "#e8eaed"},
+                        {label: "COGS", key: "cogs", fmt: fm, colorFn: () => "#e8eaed"},
+                        {label: "Gross Profit", key: "gp", fmt: fm, colorFn: v => v >= 0 ? "#4ade80" : "#f87171"},
+                        {label: "GP%", key: "gpm", fmt: fP, colorFn: v => v >= 0.26 ? "#4ade80" : v >= 0.15 ? "#fbbf24" : "#f87171"},
+                        {label: "Expenses", key: "expenses", fmt: fm, colorFn: () => "#fbbf24"},
+                        {label: "Net Income", key: "netIncome", fmt: fm, colorFn: v => v >= 0 ? "#4ade80" : "#f87171"},
+                        {label: "NI%", key: "nim", fmt: fP, colorFn: v => v >= 0 ? "#4ade80" : "#f87171"},
+                      ].map((row, ri) => {
+                        const ytdVal = row.key === "gpm" ? ytdGPM
+                          : row.key === "nim" ? (ytdRev > 0 ? ytdNI / ytdRev : 0)
+                          : plData.reduce((a, m) => a + m[row.key], 0);
+                        return <tr key={ri} style={{borderBottom: "1px solid #2a2d38"}}>
+                          <td style={{padding: "5px 6px", fontWeight: 600, color: "#9ca3af", position: "sticky", left: 0, background: "#0f1117"}}>{row.label}</td>
+                          {plData.map((m, i) => <td key={i} style={{padding: "5px 6px", textAlign: "right",
+                            fontFamily: M, color: row.colorFn(m[row.key])}}>{row.fmt(m[row.key])}</td>)}
+                          <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M, fontWeight: 700,
+                            color: row.colorFn(ytdVal)}}>{row.fmt(ytdVal)}</td>
+                        </tr>;
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </Sc>
+
+              <Sc t="Budget vs Actual (Annualized)">
+                <div style={{fontSize: 10, color: "#6b7280", marginBottom: 8}}>
+                  Based on {moCount} months of actuals, annualized to 12 months vs budget targets.
+                </div>
+                <BvA l="Revenue" b={tRev} a={annualizedRev}/>
+                <BvA l="Gross Profit" b={gp} a={annualizedGP}/>
+                <BvA l="Total Expenses" b={tExp} a={annualizedExp}/>
+                <div style={{marginBottom: 9}}>
+                  <div style={{display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 2}}>
+                    <span style={{color: "#6b7280"}}>Net Income</span>
+                    <span style={{fontFamily: M, fontSize: 9}}>
+                      <span style={{color: annualizedNI >= 0 ? "#4ade80" : "#f87171"}}>{fm(annualizedNI)}</span>
+                      {" / "}
+                      {fm(gp - tExp)} (budget)
+                    </span>
+                  </div>
+                  <div style={{height: 7, background: "#2a2d38", borderRadius: 4, position: "relative"}}>
+                    <div style={{position: "absolute", height: "100%",
+                      width: Math.min(Math.max(annualizedNI / Math.max(1, gp - tExp), 0), 1) * 100 + "%",
+                      background: annualizedNI >= 0 ? "#4ade80" : "#f87171", borderRadius: 4}}/>
+                  </div>
+                </div>
+              </Sc>
+
+              <Sc t="GP% Trend by Month">
+                <div style={{display: "flex", gap: 6, flexWrap: "wrap"}}>
+                  {plData.map((m, i) => {
+                    const c = m.gpm >= 0.26 ? "#4ade80" : m.gpm >= 0.15 ? "#fbbf24" : "#f87171";
+                    return <div key={i} style={{background: "#181b23", border: "1px solid #2a2d38",
+                      borderRadius: 6, padding: "6px 10px", textAlign: "center", minWidth: 56}}>
+                      <div style={{fontSize: 9, color: "#6b7280", marginBottom: 2}}>{m.month.split(' ')[0]}</div>
+                      <div style={{fontSize: 14, fontWeight: 800, fontFamily: M, color: c}}>{(m.gpm * 100).toFixed(1)}%</div>
+                    </div>;
+                  })}
+                </div>
+              </Sc>
+            </div>;
+          })()}
+        </div>}
+
+        {/* ═══ TAB 9: EXECUTIVE DASHBOARD ═══ */}
+        {tab === 9 && <div id="dashboard-print">
           <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16}}>
             <div style={{textAlign: "center", flex: 1}}>
               <h2 style={{margin: 0, fontSize: 17, fontWeight: 800}}>2026 Executive Summary</h2>
