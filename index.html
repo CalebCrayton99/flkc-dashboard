@@ -9,6 +9,7 @@
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0f1117;color:#e8eaed;font-family:'DM Sans',sans-serif}
@@ -26,12 +27,16 @@ input[type=range]{accent-color:#5b8af5}
 <body>
 <div id="root"></div>
 <script type="text/babel" data-type="module">
-const {useState}=React;
+const {useState, useEffect}=React;
+
+const SUPABASE_URL = 'https://ixhniyjdfoijmnpkfoxw.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_hQKDF_yuAPZwA3_c4_U55Q_sPwfZDim';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ══════════════════════════════════════════════════════════════════════
    SEED DATA — 153 projects (2025 + 2026)
    ══════════════════════════════════════════════════════════════════════ */
-const SEED=[
+const SEED_FALLBACK=[
 {"id":"25001","name":"Lowenstein Mound Repair","a":9139.93,"d":"2025-01-02","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":7768.75,"sf":0,"nt":"","y":2025},
 {"id":"25002","name":"Richmond Dear Elementary","a":73614,"d":"2025-01-02","pm":"Proj","r":"Austin","m":"KC","rp":"ABC","pg":62826.71,"k9":0,"ls":0,"gf":0,"sp":0,"ms":0,"sf":3975,"nt":"","y":2025},
 {"id":"25003","name":"Ripke Material","a":847.98,"d":"2025-01-03","pm":"Mat","r":"House","m":"IA","rp":"","pg":0,"k9":0,"ls":0,"gf":0,"sp":0,"ms":720.76,"sf":0,"nt":"","y":2025},
@@ -314,10 +319,88 @@ function Tx({l, v, set, type = "text", opts}) {
    MAIN APP
    ══════════════════════════════════════════════════════════════════════ */
 function App() {
+  const [authed, setAuthed] = useState(localStorage.getItem('flkc_auth') === 'flkc2026!');
+  const [pwInput, setPwInput] = useState('');
+  const [pwErr, setPwErr] = useState(false);
+  const handleLogin = () => {
+    if (pwInput === 'flkc2026!') {
+      localStorage.setItem('flkc_auth', 'flkc2026!');
+      setAuthed(true);
+      setPwErr(false);
+    } else {
+      setPwErr(true);
+    }
+  };
+  const handleLogout = () => {
+    localStorage.removeItem('flkc_auth');
+    setAuthed(false);
+    setPwInput('');
+  };
+
   const [tab, setTab] = useState(0);
-  const [sales, setSales] = useState(SEED);
+  const [sales, setSales] = useState([]);
   const [instLog, setInstLog] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState(null);
+  const [editSale, setEditSale] = useState(null);
   const [logYr, setLogYr] = useState(2026);
+
+  useEffect(() => {
+    if (!authed) { setLoading(false); return; }
+    async function loadData() {
+      try {
+        const {data: salesData, error: salesErr} = await supabase
+          .from('sales').select('*').order('date', {ascending: true});
+        if (salesErr) throw salesErr;
+
+        const mapped = salesData.map(s => ({
+          _dbId: s.id,
+          id: s.project_number,
+          name: s.name,
+          a: +s.amount,
+          d: s.date,
+          pm: s.proj_mat,
+          r: s.rep,
+          m: s.market,
+          rp: s.rep_project || '',
+          pg: +s.playground,
+          k9: +s.k9,
+          ls: +s.landscape,
+          gf: +s.golf,
+          sp: +s.sports,
+          ms: +s.misc,
+          sf: +s.sqft,
+          nt: s.note || '',
+          y: s.year
+        }));
+        setSales(mapped);
+
+        const {data: posData, error: posErr} = await supabase
+          .from('install_pos').select('*').order('date', {ascending: true});
+        if (posErr) throw posErr;
+
+        const mappedPOs = posData.map(p => ({
+          _dbId: p.id,
+          id: 'PO-' + p.id,
+          project: p.project,
+          sub: p.sub,
+          amount: +p.amount,
+          sqft: +p.sqft,
+          date: p.date,
+          note: p.note || '',
+          year: p.year
+        }));
+        setInstLog(mappedPOs);
+
+      } catch(err) {
+        console.error('Supabase load error:', err);
+        setDbError(err.message);
+        setSales(SEED_FALLBACK);
+      }
+      setLoading(false);
+    }
+    loadData();
+  }, [authed]);
   const [expanded, setExpanded] = useState({});
   const toggleExp = i => setExpanded(p => ({...p, [i]: !p[i]}));
 
@@ -531,17 +614,87 @@ function App() {
     setTimeout(() => window.print(), 300);
   };
 
-  const addSale = () => {
+  const addSale = async () => {
     if (!nS.name || !nS.a) return;
-    setSales(p => [...p, {...nS, id: nS.id || ("26" + (p.filter(s => s.y === 2026).length + 100))}]);
-    sNS({id: "", name: "", a: 0, d: "2026-04-07", pm: "Proj", r: "Jordan", m: "DSM", rp: "",
-      pg: 0, k9: 0, ls: 0, gf: 0, sp: 0, ms: 0, sf: 0, nt: "", y: 2026});
+    const row = {
+      project_number: nS.id || ('26' + (sales.filter(s => s.y === 2026).length + 100)),
+      name: nS.name,
+      amount: nS.a,
+      date: nS.d,
+      proj_mat: nS.pm,
+      rep: nS.r,
+      market: nS.m,
+      rep_project: nS.rp,
+      playground: nS.pg,
+      k9: nS.k9,
+      landscape: nS.ls,
+      golf: nS.gf,
+      sports: nS.sp,
+      misc: nS.ms,
+      sqft: nS.sf,
+      note: nS.nt,
+      year: nS.y
+    };
+    const {data, error} = await supabase.from('sales').insert([row]).select();
+    if (error) { alert('Save failed: ' + error.message); return; }
+    const d = data[0];
+    setSales(p => [...p, {
+      _dbId: d.id, id: d.project_number, name: d.name, a: +d.amount, d: d.date,
+      pm: d.proj_mat, r: d.rep, m: d.market, rp: d.rep_project || '',
+      pg: +d.playground, k9: +d.k9, ls: +d.landscape, gf: +d.golf,
+      sp: +d.sports, ms: +d.misc, sf: +d.sqft, nt: d.note || '', y: d.year
+    }]);
+    sNS({id:'', name:'', a:0, d:'2026-04-08', pm:'Proj', r:'Jordan', m:'DSM', rp:'',
+      pg:0, k9:0, ls:0, gf:0, sp:0, ms:0, sf:0, nt:'', y:2026});
     setShowAdd(false);
   };
-  const addPO = () => {
+  const saveEdit = async () => {
+    if (!editSale) return;
+    const row = {
+      project_number: editSale.id,
+      name: editSale.name,
+      amount: editSale.a,
+      date: editSale.d,
+      proj_mat: editSale.pm,
+      rep: editSale.r,
+      market: editSale.m,
+      rep_project: editSale.rp,
+      playground: editSale.pg,
+      k9: editSale.k9,
+      landscape: editSale.ls,
+      golf: editSale.gf,
+      sports: editSale.sp,
+      misc: editSale.ms,
+      sqft: editSale.sf,
+      note: editSale.nt,
+      year: editSale.y
+    };
+    if (editSale._dbId) {
+      const {error} = await supabase.from('sales').update(row).eq('id', editSale._dbId);
+      if (error) { alert('Update failed: ' + error.message); return; }
+    }
+    setSales(p => p.map(s => s._dbId === editSale._dbId ? {...editSale} : s));
+    setEditSale(null);
+  };
+  const addPO = async () => {
     if (!nP.project || !nP.amount) return;
-    setInstLog(p => [...p, {...nP, id: "PO-" + (p.length + 1)}]);
-    sNP({project: "", sub: "RCG", amount: 0, sqft: 0, date: "2026-04-07", note: "", year: 2026});
+    const row = {
+      project: nP.project,
+      sub: nP.sub,
+      amount: nP.amount,
+      sqft: nP.sqft,
+      date: nP.date,
+      note: nP.note,
+      year: nP.year
+    };
+    const {data, error} = await supabase.from('install_pos').insert([row]).select();
+    if (error) { alert('Save failed: ' + error.message); return; }
+    const d = data[0];
+    setInstLog(p => [...p, {
+      _dbId: d.id, id: 'PO-' + d.id, project: d.project, sub: d.sub,
+      amount: +d.amount, sqft: +d.sqft, date: d.date, note: d.note || '', year: d.year
+    }]);
+    sNP({project:'', sub:'RCG', amount:0, sqft:0, date:'2026-04-08', note:'', year:2026});
     setShowPO(false);
   };
 
@@ -671,20 +824,60 @@ function App() {
   }
 
   /* ══ RENDER ════════════════════════════════════════════════════════ */
+  if (!authed) return (
+    <div style={{display:'flex', justifyContent:'center', alignItems:'center',
+      minHeight:'100vh', background:'#0f1117', flexDirection:'column'}}>
+      <div style={{background:'#181b23', borderRadius:12, padding:'32px 36px',
+        border:'1px solid #2a2d38', textAlign:'center', maxWidth:340, width:'100%'}}>
+        <h1 style={{margin:'0 0 6px', fontSize:18, fontWeight:800, color:'#e8eaed'}}>FLKC Dashboard</h1>
+        <div style={{fontSize:10, color:'#6b7280', marginBottom:20}}>ForeverLawn STL / KC</div>
+        <input type="password" placeholder="Password" value={pwInput}
+          onChange={e => { setPwInput(e.target.value); setPwErr(false); }}
+          onKeyDown={e => { if (e.key === 'Enter') handleLogin(); }}
+          style={{width:'100%', padding:'10px 14px', borderRadius:6, border:'1px solid ' + (pwErr ? '#f87171' : '#2a2d38'),
+            background:'#0f1117', color:'#e8eaed', fontSize:13, marginBottom:10, boxSizing:'border-box',
+            fontFamily:'inherit', outline:'none'}}/>
+        {pwErr && <div style={{fontSize:10, color:'#f87171', marginBottom:8}}>Incorrect password</div>}
+        <button onClick={handleLogin}
+          style={{width:'100%', padding:'10px', borderRadius:6, background:'#5b8af5',
+            color:'#fff', fontSize:13, fontWeight:700, border:'none', cursor:'pointer'}}>Enter</button>
+      </div>
+    </div>
+  );
+
+  if (loading) return (
+    <div style={{display:'flex', justifyContent:'center', alignItems:'center',
+      minHeight:'100vh', background:'#0f1117', color:'#5b8af5', fontSize:14}}>
+      Loading dashboard...</div>
+  );
+
   return (
     <div style={{minHeight: "100vh"}}>
+
+      {dbError && <div style={{background:'rgba(248,113,113,0.1)', borderBottom:'1px solid #f87171',
+        padding:'6px 18px', fontSize:10, color:'#f87171'}}>
+        Database error: {dbError} — showing local fallback data</div>}
 
       {/* ── HEADER ──────────────────────────────────────────────── */}
       <div style={{background: "linear-gradient(135deg,#181b23,#1a1f2e)",
         borderBottom: "1px solid #2a2d38", padding: "14px 18px 10px"}}>
         <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10}}>
           <div>
-            <h1 style={{margin: 0, fontSize: 16, fontWeight: 800}}>FLKC 2026 Business Model</h1>
+            <h1 style={{margin: 0, fontSize: 16, fontWeight: 800}}>FLKC 2026 Business Model
+              <span style={{fontSize:9, color: dbError ? '#f87171' : '#4ade80', marginLeft:8, fontWeight:500}}>
+                {dbError ? 'Local mode' : 'Cloud sync'}</span>
+            </h1>
             <div style={{fontSize: 10, color: "#6b7280", marginTop: 1}}>ForeverLawn STL / KC &mdash; Caleb Crayton</div>
           </div>
-          <div style={{fontSize: 10, color: "#6b7280", textAlign: "right"}}>
-            Install Div: <span style={{color: instOn ? "#4ade80" : "#f87171", fontWeight: 600}}>
-              {instOn ? "ON" : "OFF"}</span>
+          <div style={{display:'flex', alignItems:'center', gap:10}}>
+            <div style={{fontSize: 10, color: "#6b7280", textAlign: "right"}}>
+              Install Div: <span style={{color: instOn ? "#4ade80" : "#f87171", fontWeight: 600}}>
+                {instOn ? "ON" : "OFF"}</span>
+            </div>
+            <button onClick={handleLogout}
+              style={{padding:'4px 10px', borderRadius:4, border:'1px solid #2a2d38',
+                background:'none', color:'#6b7280', fontSize:9, cursor:'pointer',
+                fontFamily:'inherit'}}>Lock</button>
           </div>
         </div>
         <div style={{display: "flex", gap: 8, flexWrap: "wrap"}}>
@@ -1177,6 +1370,32 @@ function App() {
                 color: "#000", fontWeight: 700, border: "none", cursor: "pointer", fontSize: 11}}>Save</button>
           </div>}
 
+          {editSale && <div style={{background: "#181b23", borderRadius: 8, padding: 14,
+            border: "1px solid #5b8af5", marginBottom: 12}}>
+            <div style={{fontSize: 12, fontWeight: 700, color: "#5b8af5", marginBottom: 8}}>Edit Sale: {editSale.name}</div>
+            <div style={{display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "0 10px"}}>
+              <Tx l="Job #" v={editSale.id} set={v => setEditSale({...editSale, id: v})}/>
+              <Tx l="Project Name" v={editSale.name} set={v => setEditSale({...editSale, name: v})}/>
+              <Tx l="Amount" v={editSale.a} set={v => setEditSale({...editSale, a: v})} type="number"/>
+              <Tx l="Date" v={editSale.d} set={v => setEditSale({...editSale, d: v})} type="date"/>
+              <Tx l="Proj/Mat" v={editSale.pm} set={v => setEditSale({...editSale, pm: v})} opts={["Proj", "Mat"]}/>
+              <Tx l="Rep" v={editSale.r} set={v => setEditSale({...editSale, r: v})}
+                opts={[...new Set([...reps.map(r => r.name), "House", ...sales.map(s => s.r)])].sort()}/>
+              <Tx l="Market" v={editSale.m} set={v => setEditSale({...editSale, m: v})} opts={["KC", "DSM", "STL", "IA"]}/>
+              <Tx l="Rep Project" v={editSale.rp} set={v => setEditSale({...editSale, rp: v})} opts={["", "AB", "ABC"]}/>
+              <Tx l="Sqft" v={editSale.sf} set={v => setEditSale({...editSale, sf: v})} type="number"/>
+              <Tx l="Note" v={editSale.nt} set={v => setEditSale({...editSale, nt: v})}/>
+            </div>
+            <div style={{display: "flex", gap: 8, marginTop: 6}}>
+              <button onClick={saveEdit}
+                style={{padding: "7px 20px", borderRadius: 5, background: "#5b8af5",
+                  color: "#fff", fontWeight: 700, border: "none", cursor: "pointer", fontSize: 11}}>Save Changes</button>
+              <button onClick={() => setEditSale(null)}
+                style={{padding: "7px 20px", borderRadius: 5, background: "#2a2d38",
+                  color: "#9ca3af", fontWeight: 700, border: "none", cursor: "pointer", fontSize: 11}}>Cancel</button>
+            </div>
+          </div>}
+
           {logYr === 2026 && <div style={{marginBottom: 12}}>
             {reps.map(r => <BvA key={r.id} l={r.name} b={r.goal} a={aByR(r.name)}/>)}
             <BvA l="House" b={houseGoal} a={houseActual}/>
@@ -1216,13 +1435,23 @@ function App() {
                         {s.sf ? s.sf.toLocaleString() : "-"}</td>
                       <td style={{padding: "5px 6px", fontSize: 9, color: "#6b7280", maxWidth: 200}}>
                         {s.nt || ""}</td>
-                      <td style={{padding: "5px 6px"}}>
-                        {logYr === 2026 &&
+                      <td style={{padding: "5px 6px", whiteSpace: "nowrap"}}>
+                        {logYr === 2026 && <>
                           <button onClick={e => {
                             e.stopPropagation();
+                            setEditSale({...s});
+                          }} style={{background: "none", border: "none", color: "#5b8af5",
+                            cursor: "pointer", fontSize: 9, marginRight: 4}}>edit</button>
+                          <button onClick={async (e) => {
+                            e.stopPropagation();
+                            if (s._dbId) {
+                              const {error} = await supabase.from('sales').delete().eq('id', s._dbId);
+                              if (error) { alert('Delete failed: ' + error.message); return; }
+                            }
                             setSales(prev => prev.filter(x => x !== s));
                           }} style={{background: "none", border: "none", color: "#f87171",
-                            cursor: "pointer", fontSize: 11}}>x</button>}
+                            cursor: "pointer", fontSize: 11}}>x</button>
+                        </>}
                       </td>
                     </tr>
                   );
@@ -1321,11 +1550,13 @@ function App() {
                     {p.sqft ? "$" + (p.amount / p.sqft).toFixed(2) : "-"}</td>
                   <td style={{padding: "4px 6px", fontSize: 9, color: "#6b7280"}}>{p.date}</td>
                   <td style={{padding: "4px 6px", fontSize: 9, color: "#6b7280"}}>{p.note}</td>
-                  <td><button onClick={() => {
-                    setInstLog(prev => {
-                      const f = prev.filter(x => x.year === 2026);
-                      return prev.filter(x => x !== f[i]);
-                    });
+                  <td><button onClick={async () => {
+                    const po = i26.sort((a, b) => a.date > b.date ? 1 : -1)[i];
+                    if (po && po._dbId) {
+                      const {error} = await supabase.from('install_pos').delete().eq('id', po._dbId);
+                      if (error) { alert('Delete failed: ' + error.message); return; }
+                    }
+                    setInstLog(prev => prev.filter(x => x !== po));
                   }} style={{background: "none", border: "none", color: "#f87171",
                     cursor: "pointer", fontSize: 11}}>x</button></td>
                 </tr>
