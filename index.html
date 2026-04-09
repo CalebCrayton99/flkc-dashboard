@@ -587,8 +587,10 @@ function App() {
   const [tPmt, sTPmt] = useState(1000);
   const [sPmt, sSPmt] = useState(1000);
   const [fuel, sFuel] = useState(1000);
-  const [subRt, sSubRt] = useState(4.43);
-  const [clRt, sClRt] = useState(5.91);
+  const DEF_SUB_RT = 4.43;  // default PO cost per sqft
+  const DEF_CL_RT = 5.99;   // default price to customer per sqft
+  const [subRt, sSubRt] = useState(DEF_SUB_RT);
+  const [clRt, sClRt] = useState(DEF_CL_RT);
   const [instOn, setInstOn] = useState(true);
   const [burdenRt, sBurdenRt] = useState(0.22);
   const [crIns, sCrIns] = useState(12000);
@@ -1598,10 +1600,18 @@ function App() {
                   sub={"@ $" + clRt.toFixed(2) + "/sf client rate"}/>
                 <Sl l="Client Rate ($/sf)" v={clRt} set={sClRt} mn={3} mx={10} st={0.01}
                   f={v => "$" + v.toFixed(2) + "/sf"}
-                  sub="What you charge the client per sqft"/>
+                  sub={"Default: $" + DEF_CL_RT.toFixed(2) + "/sf"}/>
+                {clRt !== DEF_CL_RT && <button onClick={() => sClRt(DEF_CL_RT)}
+                  style={{marginTop: 2, marginBottom: 4, padding: "4px 12px", borderRadius: 4, border: "1px solid #2a2d38",
+                    background: "none", color: "#5b8af5", fontSize: 9, fontWeight: 600,
+                    cursor: "pointer"}}>Reset to default (${DEF_CL_RT.toFixed(2)}/sf)</button>}
                 <Sl l="Sub PO Rate ($/sf)" v={subRt} set={sSubRt} mn={2} mx={8} st={0.01}
                   f={v => "$" + v.toFixed(2) + "/sf"}
-                  sub="What a sub would charge you"/>
+                  sub={"Default: $" + DEF_SUB_RT.toFixed(2) + "/sf"}/>
+                {subRt !== DEF_SUB_RT && <button onClick={() => sSubRt(DEF_SUB_RT)}
+                  style={{marginTop: 2, marginBottom: 4, padding: "4px 12px", borderRadius: 4, border: "1px solid #2a2d38",
+                    background: "none", color: "#5b8af5", fontSize: 9, fontWeight: 600,
+                    cursor: "pointer"}}>Reset to default (${DEF_SUB_RT.toFixed(2)}/sf)</button>}
                 {instSfOver !== null && <button onClick={() => setInstSfOver(null)}
                   style={{marginTop: 4, padding: "4px 12px", borderRadius: 4, border: "1px solid #2a2d38",
                     background: "none", color: "#5b8af5", fontSize: 9, fontWeight: 600,
