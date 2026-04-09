@@ -453,25 +453,9 @@ function App() {
     loadData();
   }, [authed]);
 
-  /* ── Auto-save settings to Supabase (debounced, skip in scenario mode) ── */
   const saveTimerRef = React.useRef(null);
   const [saveStatus, setSaveStatus] = useState(null); /* null, 'saving', 'saved', 'error' */
-  useEffect(() => {
-    if (!settingsLoaded || !authed || scenario) return;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    setSaveStatus('saving');
-    saveTimerRef.current = setTimeout(() => {
-      const data = {
-        reps, staff, houseGoal, gpm, ptet,
-        rent, ins, tech, acct, fcfo, ads, trav, oth, bank, dues, post, txLc, trn, plc,
-        crCt, crRt, fmBase, fmBon, crSt, iRt, wkW, tPmt, sPmt, fuel,
-        subRt, clRt, instOn, burdenRt, crIns, consPsf, stonePsf
-      };
-      supabase.from('dashboard_settings').update({data, updated_at: new Date().toISOString()}).eq('id', 1)
-        .then(({error}) => { setSaveStatus(error ? 'error' : 'saved'); });
-    }, 1500);
-    return () => { if(saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [reps, staff, houseGoal, gpm, ptet, rent, ins, tech, acct, fcfo, ads, trav, oth, bank, dues, post, txLc, trn, plc, crCt, crRt, fmBase, fmBon, crSt, iRt, wkW, tPmt, sPmt, fuel, subRt, clRt, instOn, burdenRt, crIns, consPsf, stonePsf, settingsLoaded, authed, scenario]);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   const [expanded, setExpanded] = useState({});
   const toggleExp = i => setExpanded(p => ({...p, [i]: !p[i]}));
@@ -541,6 +525,24 @@ function App() {
   const [crIns, sCrIns] = useState(12000);
   const [consPsf, sConsPsf] = useState(0.40);
   const [stonePsf, sStonePsf] = useState(0.43);
+
+  /* ── Auto-save settings to Supabase (debounced, skip in scenario mode) ── */
+  useEffect(() => {
+    if (!settingsLoaded || !authed || scenario) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setSaveStatus('saving');
+    saveTimerRef.current = setTimeout(() => {
+      const data = {
+        reps, staff, houseGoal, gpm, ptet,
+        rent, ins, tech, acct, fcfo, ads, trav, oth, bank, dues, post, txLc, trn, plc,
+        crCt, crRt, fmBase, fmBon, crSt, iRt, wkW, tPmt, sPmt, fuel,
+        subRt, clRt, instOn, burdenRt, crIns, consPsf, stonePsf
+      };
+      supabase.from('dashboard_settings').update({data, updated_at: new Date().toISOString()}).eq('id', 1)
+        .then(({error}) => { setSaveStatus(error ? 'error' : 'saved'); });
+    }, 1500);
+    return () => { if(saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [reps, staff, houseGoal, gpm, ptet, rent, ins, tech, acct, fcfo, ads, trav, oth, bank, dues, post, txLc, trn, plc, crCt, crRt, fmBase, fmBon, crSt, iRt, wkW, tPmt, sPmt, fuel, subRt, clRt, instOn, burdenRt, crIns, consPsf, stonePsf, settingsLoaded, authed, scenario]);
 
   /* ── Form state ────────────────────────────────────────────────── */
   const [showAdd, setShowAdd] = useState(false);
