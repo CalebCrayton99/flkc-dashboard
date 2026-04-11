@@ -1032,7 +1032,7 @@ function App() {
   const wkDy = sesWk * 5;
   const tCapCalc = iRt * wkDy; /* crew-derived capacity */
   const tCap = instSfOver !== null ? instSfOver : tCapCalc;
-  const instRev = tCap * clRt; /* install revenue = sqft × client rate */
+  const instRev = tCap * subRt; /* install div revenue = sqft × sub rate (markup excluded — would flow to main biz regardless) */
   const crLabBurd = crCt * crRt * 8 * wkDy * (1 + burdenRt);
   const fmBurd = fmBase * (1 + burdenRt);
   const eqMo = tPmt + sPmt + fuel;
@@ -1593,11 +1593,11 @@ function App() {
                     ? "Manual override (crew calc: " + Math.round(tCapCalc).toLocaleString() + " sf)"
                     : "From crew setup: " + Math.round(wkDy) + " days x " + iRt + " sf/day"}/>
                 <Sl l="Total Install Revenue" v={Math.round(instRev)} set={v => {
-                    const sf = clRt > 0 ? Math.round(v / clRt) : 0;
+                    const sf = subRt > 0 ? Math.round(v / subRt) : 0;
                     setInstSfOver(sf);
                   }}
                   mn={0} mx={3000000} st={5000}
-                  sub={"@ $" + clRt.toFixed(2) + "/sf client rate"}/>
+                  sub={"@ $" + subRt.toFixed(2) + "/sf sub rate (markup excluded)"}/>
                 <Sl l="Client Rate ($/sf)" v={clRt} set={sClRt} mn={3} mx={10} st={0.01}
                   f={v => "$" + v.toFixed(2) + "/sf"}
                   sub={"Default: $" + DEF_CL_RT.toFixed(2) + "/sf"}/>
@@ -1620,7 +1620,7 @@ function App() {
               <div style={{display: "flex", gap: 8, flexWrap: "wrap"}}>
                 <KP l="Install Sqft" v={Math.round(tCap).toLocaleString()} c="#5b8af5"/>
                 <KP l="Install Revenue" v={fm(instRev)} c="#5b8af5"
-                  sub={"@ $" + clRt.toFixed(2) + "/sf"}/>
+                  sub={"@ $" + subRt.toFixed(2) + "/sf sub rate"}/>
                 <KP l="Install COGS" v={fm(tInt)} c="#fbbf24"
                   sub={"@ $" + iPsf.toFixed(2) + "/sf"}/>
                 <KP l="Install GP" v={fm(instRev - tInt)}
