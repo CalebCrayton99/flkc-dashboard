@@ -338,6 +338,8 @@ function App() {
   };
 
   const [tab, setTab] = useState(0);
+  const [arData, setArData] = useState(null); /* parsed Open AR workbook */
+  const [arNotes, setArNotes] = useState([]); /* Supabase contact log per invoice */
   const [sales, setSales] = useState([]);
   const [instLog, setInstLog] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -464,6 +466,10 @@ function App() {
           year: p.year
         }));
         setInstLog(mappedPOs);
+
+        const {data: arNotesData} = await supabase
+          .from('ar_notes').select('*').order('contact_date', {ascending: false});
+        if (arNotesData) setArNotes(arNotesData);
 
       } catch(err) {
         console.error('Supabase load error:', err);
@@ -770,7 +776,7 @@ function App() {
     exportCSV(rows, headers, "FLKC_Install_POs_2026.csv");
   };
   const printDashboard = () => {
-    setTab(9);
+    setTab(10);
     setTimeout(() => window.print(), 300);
   };
 
@@ -1089,7 +1095,7 @@ function App() {
   const aTot = s26.reduce((a, s) => a + s.a, 0);
   const aSf = s26.reduce((a, s) => a + (s.sf || 0), 0);
   const i26 = instLog.filter(i => i.year === 2026);
-  const tabs = ["Overview", "Team", "Reps", "Install", "Sales Log", "Install Log", "Job Costing", "WIP", "P&L Actuals", "Dashboard"];
+  const tabs = ["Overview", "Team", "Reps", "Install", "Sales Log", "Install Log", "Job Costing", "WIP", "P&L Actuals", "Open AR", "Dashboard"];
   const mN = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   /* Rep card component */
@@ -2479,8 +2485,259 @@ function App() {
           })()}
         </div>}
 
-        {/* ═══ TAB 9: EXECUTIVE DASHBOARD ═══ */}
-        {tab === 9 && <div id="dashboard-print">
+        {/* ═══ TAB 9: OPEN AR ═══ */}
+        {tab === 9 && <div>
+          {(() => {
+            const parseAR = (file) => {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                const wb = XLSX.read(e.target.result, {type: "array", cellDates: true});
+                const weeks = [];
+                wb.SheetNames.forEach(name => {
+                  const ws = wb.Sheets[name];
+                  const rows = XLSX.utils.sheet_to_json(ws, {header: 1, defval: null});
+                  const buckets = {};
+                  let curBucket = null;
+                  let items = [];
+                  let grandTotal = 0;
+                  rows.forEach(r => {
+                    const a = r[0], b = r[1], h = r[7];
+                    if (typeof a === "string" && a.match(/^\d+ or more|^\d+\s*-\s*\d+|^CURRENT/i)) {
+                      curBucket = a.trim();
+                      return;
+                    }
+                    if (typeof a === "string" && a.startsWith("Total for ")) {
+                      if (curBucket) buckets[curBucket] = {total: h || 0, items};
+                      items = [];
+                      curBucket = null;
+                      return;
+                    }
+                    if (b === "TOTAL") { grandTotal = h || 0; return; }
+                    if (b === "Date" || !b) return;
+                    if (curBucket && h != null) {
+                      const custRaw = r[3] || "";
+                      const parts = custRaw.split(":");
+                      const customer = parts[0] || "";
+                      const project = parts.slice(1).join(":").trim() || "";
+                      items.push({
+                        date: r[1], num: r[2], customer, project,
+                        due: r[4], rep: r[5], pastDue: r[6], balance: h, notes: r[8] || ""
+                      });
+                    }
+                  });
+                  if (curBucket && items.length) buckets[curBucket] = {total: items.reduce((a,i)=>a+i.balance,0), items};
+                  const dp = name.split(".");
+                  let dt = name;
+                  if (dp.length === 3) {
+                    const yr = dp[2].length === 2 ? "20" + dp[2] : dp[2];
+                    dt = yr + "-" + dp[0].padStart(2,"0") + "-" + dp[1].padStart(2,"0");
+                  }
+                  weeks.push({name, dt, buckets, grandTotal});
+                });
+                weeks.sort((a,b) => a.dt.localeCompare(b.dt));
+                setArData(weeks);
+              };
+              reader.readAsArrayBuffer(file);
+            };
+
+            const addArNote = async (invoiceNum, note, contactedBy) => {
+              const today = new Date().toISOString().slice(0, 10);
+              const row = {invoice_num: invoiceNum, note, contacted_by: contactedBy, contact_date: today};
+              const {data, error} = await supabase.from('ar_notes').insert([row]).select();
+              if (!error && data && data[0]) setArNotes(p => [data[0], ...p]);
+            };
+            const deleteArNote = async (id) => {
+              const {error} = await supabase.from('ar_notes').delete().eq('id', id);
+              if (!error) setArNotes(p => p.filter(n => n.id !== id));
+            };
+            const notesFor = (inv) => arNotes.filter(n => n.invoice_num === inv);
+
+            const bucketOrder = ["91 or more days past due", "61 - 90 days past due", "31 - 60 days past due", "1 - 30 days past due", "CURRENT"];
+            const bucketColors = {"91 or more days past due":"#f87171","61 - 90 days past due":"#fb923c","31 - 60 days past due":"#fbbf24","1 - 30 days past due":"#a3e635","CURRENT":"#4ade80"};
+            const bucketShort = {"91 or more days past due":"91+","61 - 90 days past due":"61-90","31 - 60 days past due":"31-60","1 - 30 days past due":"1-30","CURRENT":"Current"};
+            const latest = arData ? arData[arData.length - 1] : null;
+            const allItems = latest ? bucketOrder.flatMap(b => (latest.buckets[b]?.items || []).map(i => ({...i, bucket: b}))) : [];
+
+            /* Inline AR row component with expandable notes + contact log */
+            function ARRow({item, idx}) {
+              const [open, setOpen] = useState(false);
+              const [newNote, setNewNote] = useState("");
+              const [newBy, setNewBy] = useState("");
+              const inv = item.num || "";
+              const logs = notesFor(inv);
+              const lastContact = logs.length > 0 ? logs[0] : null;
+              return <React.Fragment>
+                <tr style={{borderBottom: open ? "none" : "1px solid #1e2028", cursor: "pointer",
+                  background: open ? "#181b23" : "transparent"}} onClick={() => setOpen(!open)}>
+                  <td style={{padding:"6px", whiteSpace:"nowrap"}}>
+                    <span style={{display:"inline-block", width:6, height:6, borderRadius:3,
+                      background: bucketColors[item.bucket], marginRight:4}}/>
+                    <span style={{fontSize:9}}>{bucketShort[item.bucket]}</span>
+                  </td>
+                  <td style={{padding:"6px", maxWidth:140, overflow:"hidden", textOverflow:"ellipsis",
+                    whiteSpace:"nowrap"}}>{item.customer}</td>
+                  <td style={{padding:"6px", maxWidth:160, overflow:"hidden", textOverflow:"ellipsis",
+                    whiteSpace:"nowrap", color:"#5b8af5"}}>{item.project}</td>
+                  <td style={{padding:"6px", fontFamily:M, fontSize:9}}>{item.num}</td>
+                  <td style={{padding:"6px", textAlign:"right", fontFamily:M, fontWeight:700,
+                    color: item.balance < 0 ? "#4ade80" : "#e8eaed"}}>{fm(item.balance)}</td>
+                  <td style={{padding:"6px", textAlign:"right", fontFamily:M,
+                    color: item.pastDue > 90 ? "#f87171" : item.pastDue > 60 ? "#fb923c" : item.pastDue > 30 ? "#fbbf24" : "#e8eaed"}}>{item.pastDue}d</td>
+                  <td style={{padding:"6px", fontSize:9, whiteSpace:"nowrap"}}>
+                    {lastContact
+                      ? <span style={{color:"#4ade80"}}>{lastContact.contact_date} — {lastContact.contacted_by}</span>
+                      : <span style={{color:"#6b7280"}}>No contact logged</span>}
+                  </td>
+                  <td style={{padding:"6px", fontSize:9, color:"#6b7280"}}>{open ? "▲" : "▼"}</td>
+                </tr>
+                {open && <tr style={{borderBottom:"1px solid #2a2d38"}}>
+                  <td colSpan={8} style={{padding:"0 6px 10px 20px", background:"#181b23"}}>
+                    {/* Excel notes */}
+                    {item.notes && <div style={{padding:"8px 0 6px", fontSize:10, color:"#9ca3af",
+                      borderBottom:"1px solid #1e2028", marginBottom:6}}>
+                      <span style={{color:"#6b7280", fontWeight:600, fontSize:9, textTransform:"uppercase"}}>QB Notes: </span>
+                      {item.notes}
+                    </div>}
+                    {/* Contact log entries */}
+                    {logs.length > 0 && <div style={{marginBottom:8}}>
+                      <div style={{fontSize:9, color:"#6b7280", fontWeight:600, textTransform:"uppercase", marginBottom:4}}>Contact Log</div>
+                      {logs.map(n => <div key={n.id} style={{display:"flex", justifyContent:"space-between",
+                        alignItems:"flex-start", padding:"4px 0", borderBottom:"1px solid #1e2028", fontSize:10}}>
+                        <div style={{flex:1}}>
+                          <span style={{color:"#5b8af5", fontFamily:M, marginRight:6}}>{n.contact_date}</span>
+                          <span style={{color:"#fbbf24", marginRight:6}}>{n.contacted_by}</span>
+                          <span style={{color:"#e8eaed"}}>{n.note}</span>
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); deleteArNote(n.id); }}
+                          style={{background:"none", border:"none", color:"#f87171", cursor:"pointer",
+                            fontSize:9, padding:"0 4px", flexShrink:0}}>✕</button>
+                      </div>)}
+                    </div>}
+                    {/* Add new note form */}
+                    <div style={{display:"flex", gap:6, alignItems:"center", marginTop:4}}
+                      onClick={e => e.stopPropagation()}>
+                      <input value={newBy} onChange={e => setNewBy(e.target.value)}
+                        placeholder="Initials" style={{width:60, padding:"4px 6px", fontSize:10,
+                          background:"#0f1117", border:"1px solid #2a2d38", borderRadius:4, color:"#e8eaed"}}/>
+                      <input value={newNote} onChange={e => setNewNote(e.target.value)}
+                        placeholder="Note — e.g. Left voicemail, emailed invoice..."
+                        onKeyDown={e => { if (e.key === "Enter" && newNote.trim()) {
+                          addArNote(inv, newNote.trim(), newBy.trim()); setNewNote(""); setNewBy(""); }}}
+                        style={{flex:1, padding:"4px 6px", fontSize:10,
+                          background:"#0f1117", border:"1px solid #2a2d38", borderRadius:4, color:"#e8eaed"}}/>
+                      <button onClick={() => { if (newNote.trim()) {
+                          addArNote(inv, newNote.trim(), newBy.trim()); setNewNote(""); setNewBy(""); }}}
+                        style={{padding:"4px 10px", fontSize:10, fontWeight:600, background:"#5b8af5",
+                          border:"none", borderRadius:4, color:"#fff", cursor:"pointer"}}>Add</button>
+                    </div>
+                  </td>
+                </tr>}
+              </React.Fragment>;
+            }
+
+            return <div>
+              <div style={{padding: 16, background: "#181b23", borderRadius: 8, marginBottom: 16,
+                border: "2px dashed #2a2d38", textAlign: "center", cursor: "pointer"}}
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => { e.preventDefault(); if (e.dataTransfer.files[0]) parseAR(e.dataTransfer.files[0]); }}
+                onClick={() => { const inp = document.createElement("input"); inp.type = "file"; inp.accept = ".xlsx,.xls"; inp.onchange = e => { if (e.target.files[0]) parseAR(e.target.files[0]); }; inp.click(); }}>
+                <div style={{fontSize: 13, fontWeight: 700, marginBottom: 4}}>
+                  {arData ? "Open AR Loaded (" + arData.length + " weeks)" : "Upload Open AR Excel"}
+                </div>
+                <div style={{fontSize: 10, color: "#6b7280"}}>
+                  {arData ? "Click or drag to replace" : "Click or drag & drop FLKC 2026 Open AR.xlsx"}
+                </div>
+              </div>
+
+              {arData && latest && <Rw>
+                <div>
+                  <Sc t={"Aging Summary — " + latest.name}>
+                    {bucketOrder.map(b => {
+                      const bk = latest.buckets[b];
+                      const tot = bk ? bk.total : 0;
+                      const ct = bk ? bk.items.length : 0;
+                      return <div key={b} style={{display:"flex", justifyContent:"space-between", alignItems:"center",
+                        padding:"6px 0", borderBottom:"1px solid #1e2028"}}>
+                        <div>
+                          <span style={{display:"inline-block", width:8, height:8, borderRadius:4,
+                            background: bucketColors[b], marginRight:8}}/>
+                          <span style={{fontSize:11}}>{bucketShort[b]}</span>
+                          <span style={{fontSize:9, color:"#6b7280", marginLeft:6}}>({ct})</span>
+                        </div>
+                        <span style={{fontFamily:M, fontWeight:700, fontSize:12,
+                          color: tot < 0 ? "#4ade80" : "#e8eaed"}}>{fm(tot)}</span>
+                      </div>;
+                    })}
+                    <div style={{display:"flex", justifyContent:"space-between", padding:"8px 0",
+                      fontWeight:800, borderTop:"2px solid #5b8af5", marginTop:4}}>
+                      <span>Total Open AR</span>
+                      <span style={{fontFamily:M, color:"#5b8af5"}}>{fm(latest.grandTotal)}</span>
+                    </div>
+                  </Sc>
+
+                  <Sc t="Weekly AR Trend">
+                    {(() => {
+                      const maxAR = Math.max(...arData.map(w => w.grandTotal), 1);
+                      return arData.map(w => <Br key={w.name} l={w.name} v={w.grandTotal} mx={maxAR}
+                        c={w === latest ? "#5b8af5" : "#3b5998"}/>);
+                    })()}
+                  </Sc>
+
+                  <Sc t="Aging Breakdown by Week">
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%", borderCollapse:"collapse", fontSize:10, fontFamily:M}}>
+                        <thead>
+                          <tr>
+                            <th style={{textAlign:"left", padding:"4px 6px", color:"#6b7280", borderBottom:"1px solid #2a2d38"}}>Week</th>
+                            {bucketOrder.map(b => <th key={b} style={{textAlign:"right", padding:"4px 6px",
+                              color: bucketColors[b], borderBottom:"1px solid #2a2d38"}}>{bucketShort[b]}</th>)}
+                            <th style={{textAlign:"right", padding:"4px 6px", color:"#5b8af5", borderBottom:"1px solid #2a2d38"}}>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {arData.map(w => <tr key={w.name}>
+                            <td style={{padding:"4px 6px", borderBottom:"1px solid #1e2028"}}>{w.name}</td>
+                            {bucketOrder.map(b => <td key={b} style={{textAlign:"right", padding:"4px 6px",
+                              borderBottom:"1px solid #1e2028"}}>{fm(w.buckets[b]?.total || 0)}</td>)}
+                            <td style={{textAlign:"right", padding:"4px 6px", fontWeight:700, color:"#5b8af5",
+                              borderBottom:"1px solid #1e2028"}}>{fm(w.grandTotal)}</td>
+                          </tr>)}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Sc>
+                </div>
+
+                <div>
+                  <Sc t={"Invoices — " + latest.name + " (" + allItems.length + ")"}>
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%", borderCollapse:"collapse", fontSize:10}}>
+                        <thead>
+                          <tr>
+                            {["Aging","Customer","Project","Invoice","Balance","Past Due","Last Contact",""].map(h =>
+                              <th key={h} style={{textAlign: h==="Balance" || h==="Past Due" ? "right" : "left",
+                                padding:"6px", color:"#6b7280", borderBottom:"1px solid #2a2d38",
+                                fontSize:9, whiteSpace:"nowrap"}}>{h}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {allItems.map((item, idx) => <ARRow key={idx} item={item} idx={idx}/>)}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Sc>
+                </div>
+              </Rw>}
+
+              {!arData && <div style={{textAlign:"center", padding:40, color:"#6b7280"}}>
+                Upload the Open AR Excel file to view accounts receivable data.
+              </div>}
+            </div>;
+          })()}
+        </div>}
+
+        {/* ═══ TAB 10: EXECUTIVE DASHBOARD ═══ */}
+        {tab === 10 && <div id="dashboard-print">
           <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16}}>
             <div style={{textAlign: "center", flex: 1}}>
               <h2 style={{margin: 0, fontSize: 17, fontWeight: 800}}>2026 Executive Summary</h2>
