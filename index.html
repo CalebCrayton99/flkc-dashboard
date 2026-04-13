@@ -2535,11 +2535,18 @@ function App() {
                   if (curBucket && items.length) buckets[curBucket] = {total: items.reduce((a,i)=>a+i.balance,0), items};
                   const dp = name.split(".");
                   let dt = name;
-                  if (dp.length === 3) {
+                  let displayName = name;
+                  if (dp.length === 3 && !isNaN(dp[0]) && !isNaN(dp[1])) {
                     const yr = dp[2].length === 2 ? "20" + dp[2] : dp[2];
                     dt = yr + "-" + dp[0].padStart(2,"0") + "-" + dp[1].padStart(2,"0");
+                  } else {
+                    /* Sheet name isn't a date — use today's date */
+                    const now = new Date();
+                    const m = now.getMonth() + 1, d = now.getDate(), y = String(now.getFullYear()).slice(2);
+                    displayName = m + "." + d + "." + y;
+                    dt = now.getFullYear() + "-" + String(m).padStart(2,"0") + "-" + String(d).padStart(2,"0");
                   }
-                  weeks.push({name, dt, buckets, grandTotal});
+                  weeks.push({name: displayName, dt, buckets, grandTotal});
                 });
                 /* Merge new weeks into existing data — replace matching dates, add new ones */
                 const existing = arData || [];
@@ -2669,18 +2676,32 @@ function App() {
               </React.Fragment>;
             }
 
+            const resetAR = () => {
+              if (!confirm("Reset all AR data? This clears all uploaded weeks. Contact notes are kept.")) return;
+              setArData(null);
+              setArWeekIdx(-1);
+              supabase.from('ar_uploads').upsert({id: 1, data: null, updated_at: new Date().toISOString()});
+            };
+
             return <div>
-              <div style={{padding: 16, background: "#181b23", borderRadius: 8, marginBottom: 16,
-                border: "2px dashed #2a2d38", textAlign: "center", cursor: "pointer"}}
-                onDragOver={e => e.preventDefault()}
-                onDrop={e => { e.preventDefault(); if (e.dataTransfer.files[0]) parseAR(e.dataTransfer.files[0]); }}
-                onClick={() => { const inp = document.createElement("input"); inp.type = "file"; inp.accept = ".xlsx,.xls"; inp.onchange = e => { if (e.target.files[0]) parseAR(e.target.files[0]); }; inp.click(); }}>
-                <div style={{fontSize: 13, fontWeight: 700, marginBottom: 4}}>
-                  {arData ? "Open AR Loaded (" + arData.length + " weeks)" : "Upload Open AR Excel"}
+              <div style={{display:"flex", gap:8, alignItems:"stretch", marginBottom:16}}>
+                <div style={{flex:1, padding: 16, background: "#181b23", borderRadius: 8,
+                  border: "2px dashed #2a2d38", textAlign: "center", cursor: "pointer"}}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => { e.preventDefault(); if (e.dataTransfer.files[0]) parseAR(e.dataTransfer.files[0]); }}
+                  onClick={() => { const inp = document.createElement("input"); inp.type = "file"; inp.accept = ".xlsx,.xls"; inp.onchange = e => { if (e.target.files[0]) parseAR(e.target.files[0]); }; inp.click(); }}>
+                  <div style={{fontSize: 13, fontWeight: 700, marginBottom: 4}}>
+                    {arData ? "Open AR Loaded (" + arData.length + " weeks)" : "Upload Open AR Excel"}
+                  </div>
+                  <div style={{fontSize: 10, color: "#6b7280"}}>
+                    {arData ? "Upload new week (adds to history)" : "Click or drag & drop FLKC 2026 Open AR.xlsx"}
+                  </div>
                 </div>
-                <div style={{fontSize: 10, color: "#6b7280"}}>
-                  {arData ? "Upload new week (adds to history)" : "Click or drag & drop FLKC 2026 Open AR.xlsx"}
-                </div>
+                {arData && <button onClick={(e) => { e.stopPropagation(); resetAR(); }}
+                  style={{padding:"8px 16px", background:"#181b23", border:"1px solid #f87171", borderRadius:8,
+                    color:"#f87171", fontSize:10, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap"}}>
+                  Reset AR Data
+                </button>}
               </div>
 
               {arData && selected && <div>
