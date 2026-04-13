@@ -2307,12 +2307,7 @@ function App() {
                 <input type="file" accept=".xlsx,.xls" style={{display: "none"}}
                   onChange={e => { if(e.target.files[0]) parseWIP(e.target.files[0]); }}/>
               </label>
-              {wipHistory && <button onClick={() => {
-                if (!confirm("Reset all WIP history?")) return;
-                setWipHistory(null); setWipWeekIdx(-1);
-                supabase.from('wip_uploads').upsert({id: 1, data: null, updated_at: new Date().toISOString()});
-              }} style={{padding:"6px 12px", fontSize:10, fontWeight:600, background:"none",
-                border:"1px solid #f87171", borderRadius:6, color:"#f87171", cursor:"pointer"}}>Reset</button>}
+
             </div>
           </div>
           {wipHistory && wipHistory.length > 0 && <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:12}}>
@@ -2823,12 +2818,6 @@ function App() {
               </React.Fragment>;
             }
 
-            const resetAR = () => {
-              if (!confirm("Reset all AR data? This clears all uploaded weeks. Contact notes are kept.")) return;
-              setArData(null);
-              setArWeekIdx(-1);
-              supabase.from('ar_uploads').upsert({id: 1, data: null, updated_at: new Date().toISOString()});
-            };
 
             return <div>
               <div style={{display:"flex", gap:8, alignItems:"stretch", marginBottom:16}}>
@@ -2844,11 +2833,7 @@ function App() {
                     {arData ? "Upload new week (adds to history)" : "Click or drag & drop FLKC 2026 Open AR.xlsx"}
                   </div>
                 </div>
-                {arData && <button onClick={(e) => { e.stopPropagation(); resetAR(); }}
-                  style={{padding:"8px 16px", background:"#181b23", border:"1px solid #f87171", borderRadius:8,
-                    color:"#f87171", fontSize:10, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap"}}>
-                  Reset AR Data
-                </button>}
+
               </div>
 
               {arData && selected && <div>
