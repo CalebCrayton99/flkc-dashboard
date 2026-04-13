@@ -338,9 +338,7 @@ function App() {
   };
 
   const [tab, setTab] = useState(0);
-  const [arData, setArData] = useState(() => { /* parsed Open AR workbook */
-    try { const s = localStorage.getItem('flkc_ar_data'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
-  });
+  const [arData, setArData] = useState(null); /* parsed Open AR workbook — stored in Supabase */
   const [arNotes, setArNotes] = useState([]); /* Supabase contact log per invoice */
   const [sales, setSales] = useState([]);
   const [instLog, setInstLog] = useState([]);
@@ -472,6 +470,10 @@ function App() {
         const {data: arNotesData} = await supabase
           .from('ar_notes').select('*').order('contact_date', {ascending: false});
         if (arNotesData) setArNotes(arNotesData);
+
+        const {data: arStore} = await supabase
+          .from('ar_uploads').select('data').eq('id', 1).single();
+        if (arStore && arStore.data) setArData(arStore.data);
 
       } catch(err) {
         console.error('Supabase load error:', err);
@@ -2538,7 +2540,7 @@ function App() {
                 });
                 weeks.sort((a,b) => a.dt.localeCompare(b.dt));
                 setArData(weeks);
-                try { localStorage.setItem('flkc_ar_data', JSON.stringify(weeks)); } catch(e) {}
+                supabase.from('ar_uploads').upsert({id: 1, data: weeks, updated_at: new Date().toISOString()});
               };
               reader.readAsArrayBuffer(file);
             };
