@@ -653,6 +653,8 @@ function App() {
   const [nP, sNP] = useState({project: "", sub: "RCG", amount: 0, sqft: 0, date: "2026-04-07", note: "", year: 2026});
   const [slFiltRep, setSlFiltRep] = useState("All");
   const [slFiltMkt, setSlFiltMkt] = useState("All");
+  const [slSearch, setSlSearch] = useState("");
+  const [ilSearch, setIlSearch] = useState("");
   const [orderedSf, setOrderedSf] = useState(0);
 
   /* ── WIP & P&L state ──────────────────────────────────────────── */
@@ -1783,9 +1785,11 @@ function App() {
         {/* ═══ TAB 4: SALES LOG ═══ */}
         {actualTab === 4 && (() => {
           const yrSales = sales.filter(s => s.y === logYr);
+          const slQ = slSearch.toLowerCase();
           const filtered = yrSales.filter(s =>
             (slFiltRep === "All" || s.r === slFiltRep) &&
-            (slFiltMkt === "All" || matchMkt(s.m, slFiltMkt))
+            (slFiltMkt === "All" || matchMkt(s.m, slFiltMkt)) &&
+            (!slQ || s.id.toLowerCase().includes(slQ) || s.name.toLowerCase().includes(slQ))
           ).sort((a, b) => a.d > b.d ? 1 : -1);
           const fTot = filtered.reduce((a, s) => a + s.a, 0);
           const fSf = filtered.reduce((a, s) => a + (s.sf || 0), 0);
@@ -1817,6 +1821,10 @@ function App() {
                 <option value="All">All Markets</option>
                 {mkts.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
+              <input value={slSearch} onChange={e => setSlSearch(e.target.value)}
+                placeholder="Search job # or name..."
+                style={{padding:"4px 8px", borderRadius:4, border:"1px solid #2a2d38",
+                  background:"#1e2130", color:"#e8eaed", fontSize:10, width:160}}/>
             </div>
             <div style={{display: "flex", gap: 8, alignItems: "center"}}>
               <span style={{fontSize: 10, color: "#6b7280"}}>
@@ -2002,7 +2010,11 @@ function App() {
         {actualTab === 5 && <div>
           <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12}}>
             <h2 style={{margin: 0, fontSize: 14, fontWeight: 700}}>Install PO Log</h2>
-            <div style={{display: "flex", gap: 6}}>
+            <div style={{display: "flex", gap: 6, alignItems: "center"}}>
+              <input value={ilSearch} onChange={e => setIlSearch(e.target.value)}
+                placeholder="Search job # or name..."
+                style={{padding:"4px 8px", borderRadius:4, border:"1px solid #2a2d38",
+                  background:"#1e2130", color:"#e8eaed", fontSize:10, width:160}}/>
               {i26.length > 0 && <button onClick={exportPOCSV}
                 style={{padding: "4px 10px", borderRadius: 4, border: "1px solid #2a2d38",
                   background: "#181b23", color: "#5b8af5", fontSize: 9, fontWeight: 600, cursor: "pointer"}}>
@@ -2046,7 +2058,8 @@ function App() {
           </Sc>
 
           {i26.length > 0 && (() => {
-            const sorted = [...i26].sort((a, b) => a.date > b.date ? 1 : -1);
+            const ilQ = ilSearch.toLowerCase();
+            const sorted = [...i26].filter(p => !ilQ || p.project.toLowerCase().includes(ilQ)).sort((a, b) => a.date > b.date ? 1 : -1);
             function PORow({p, idx}) {
               const [editing, setEditing] = useState(false);
               const [ed, setEd] = useState({});
