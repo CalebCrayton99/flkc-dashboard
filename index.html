@@ -2507,28 +2507,40 @@ function App() {
                   let curBucket = null;
                   let items = [];
                   let grandTotal = 0;
+                  /* Detect format: new QB export has "Transaction type" in col C */
+                  let fmt = "old"; /* old: B=Date C=Num D=Customer E=Due F=Rep G=PastDue H=Balance I=Notes */
                   rows.forEach(r => {
-                    const a = r[0], b = r[1], h = r[7];
+                    if (r[2] && String(r[2]).toLowerCase().includes("transaction type")) fmt = "new";
+                  });
+                  /* Column mappings */
+                  const col = fmt === "new"
+                    ? {num: 3, cust: 4, due: 5, pastDue: 6, balance: 8, notes: 9, type: 2}
+                    : {num: 2, cust: 3, due: 4, pastDue: 6, balance: 7, notes: 8, type: null};
+                  rows.forEach(r => {
+                    const a = r[0], b = r[1];
+                    const bal = r[col.balance];
                     if (typeof a === "string" && a.match(/^\d+ or more|^\d+\s*-\s*\d+|^CURRENT/i)) {
                       curBucket = a.trim();
                       return;
                     }
                     if (typeof a === "string" && a.startsWith("Total for ")) {
-                      if (curBucket) buckets[curBucket] = {total: h || 0, items};
+                      if (curBucket) buckets[curBucket] = {total: bal || 0, items};
                       items = [];
                       curBucket = null;
                       return;
                     }
-                    if (b === "TOTAL") { grandTotal = h || 0; return; }
+                    if (b === "TOTAL") { grandTotal = bal || 0; return; }
                     if (b === "Date" || !b) return;
-                    if (curBucket && h != null) {
-                      const custRaw = r[3] || "";
+                    if (curBucket && bal != null) {
+                      const custRaw = r[col.cust] || "";
                       const parts = custRaw.split(":");
                       const customer = parts[0] || "";
                       const project = parts.slice(1).join(":").trim() || "";
+                      const txType = col.type !== null ? (r[col.type] || "") : "";
                       items.push({
-                        date: r[1], num: r[2], customer, project,
-                        due: r[4], rep: r[5], pastDue: r[6], balance: h, notes: r[8] || ""
+                        date: r[1], num: r[col.num], customer, project,
+                        due: r[col.due], pastDue: r[col.pastDue], balance: bal,
+                        notes: r[col.notes] || "", txType
                       });
                     }
                   });
