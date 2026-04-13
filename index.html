@@ -2613,7 +2613,10 @@ function App() {
             };
             const selIdx = arData ? (arWeekIdx < 0 || arWeekIdx >= arData.length ? arData.length - 1 : arWeekIdx) : 0;
             const selected = arData ? arData[selIdx] : null;
-            const allItems = selected ? bucketOrder.flatMap(b => (selected.buckets[b]?.items || []).map(i => ({...i, bucket: b, rep: findRep(i.num, i.project)}))) : [];
+            const rawItems = selected ? bucketOrder.flatMap(b => (selected.buckets[b]?.items || []).map(i => ({...i, bucket: b, rep: findRep(i.num, i.project)}))) : [];
+            const allItems = rawItems.filter(i => !i.status);
+            const paidItems = rawItems.filter(i => i.status === "paid");
+            const deletedItems = rawItems.filter(i => i.status === "deleted");
 
             /* Update an item's field across all weeks and re-save */
             const updateArItem = (invNum, field, value) => {
@@ -2748,6 +2751,16 @@ function App() {
                         style={{padding:"4px 10px", fontSize:10, fontWeight:600, background:"#5b8af5",
                           border:"none", borderRadius:4, color:"#fff", cursor:"pointer"}}>Add</button>
                     </div>
+                    {/* Mark Paid / Delete */}
+                    <div style={{display:"flex", gap:8, marginTop:8, paddingTop:8, borderTop:"1px solid #1e2028"}}
+                      onClick={e => e.stopPropagation()}>
+                      <button onClick={() => updateArItem(inv, "status", "paid")}
+                        style={{padding:"4px 12px", fontSize:10, fontWeight:600, background:"rgba(74,222,128,0.1)",
+                          border:"1px solid #4ade80", borderRadius:4, color:"#4ade80", cursor:"pointer"}}>Mark Paid</button>
+                      <button onClick={() => { if (confirm("Delete this invoice from AR?")) updateArItem(inv, "status", "deleted"); }}
+                        style={{padding:"4px 12px", fontSize:10, fontWeight:600, background:"rgba(248,113,113,0.1)",
+                          border:"1px solid #f87171", borderRadius:4, color:"#f87171", cursor:"pointer"}}>Delete</button>
+                    </div>
                   </td>
                 </tr>}
               </React.Fragment>;
@@ -2838,9 +2851,9 @@ function App() {
                 <div>
                   <Sc t={"Aging Summary — " + selected.name}>
                     {bucketOrder.map(b => {
-                      const bk = selected.buckets[b];
-                      const tot = bk ? bk.total : 0;
-                      const ct = bk ? bk.items.length : 0;
+                      const bkItems = (selected.buckets[b]?.items || []).filter(i => !i.status);
+                      const tot = bkItems.reduce((a, i) => a + i.balance, 0);
+                      const ct = bkItems.length;
                       return <div key={b} style={{display:"flex", justifyContent:"space-between", alignItems:"center",
                         padding:"6px 0", borderBottom:"1px solid #1e2028"}}>
                         <div>
@@ -2856,7 +2869,7 @@ function App() {
                     <div style={{display:"flex", justifyContent:"space-between", padding:"8px 0",
                       fontWeight:800, borderTop:"2px solid #5b8af5", marginTop:4}}>
                       <span>Total Open AR</span>
-                      <span style={{fontFamily:M, color:"#5b8af5"}}>{fm(selected.grandTotal)}</span>
+                      <span style={{fontFamily:M, color:"#5b8af5"}}>{fm(allItems.reduce((a, i) => a + i.balance, 0))}</span>
                     </div>
                   </Sc>
                 </div>
@@ -2879,6 +2892,32 @@ function App() {
                       </table>
                     </div>
                   </Sc>
+
+                  {/* Paid items */}
+                  {paidItems.length > 0 && <Sc t={"Paid / Resolved (" + paidItems.length + ")"}>
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%", borderCollapse:"collapse", fontSize:10, opacity:0.6}}>
+                        <tbody>
+                          {paidItems.map((item, idx) => <tr key={idx} style={{borderBottom:"1px solid #1e2028"}}>
+                            <td style={{padding:"4px 6px"}}>
+                              <span style={{display:"inline-block", width:6, height:6, borderRadius:3,
+                                background:"#4ade80", marginRight:4}}/>
+                              <span style={{fontSize:9, color:"#4ade80"}}>PAID</span>
+                            </td>
+                            <td style={{padding:"4px 6px"}}>{item.customer}</td>
+                            <td style={{padding:"4px 6px", color:"#5b8af5"}}>{item.project}</td>
+                            <td style={{padding:"4px 6px", fontFamily:M, fontSize:9}}>{item.num}</td>
+                            <td style={{padding:"4px 6px", textAlign:"right", fontFamily:M}}>{fm(item.balance)}</td>
+                            <td style={{padding:"4px 6px"}}>
+                              <button onClick={() => updateArItem(item.num, "status", null)}
+                                style={{padding:"2px 8px", fontSize:9, background:"none", border:"1px solid #2a2d38",
+                                  borderRadius:4, color:"#6b7280", cursor:"pointer"}}>Restore</button>
+                            </td>
+                          </tr>)}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Sc>}
                 </div>
               </Rw>
               </div>}
