@@ -319,21 +319,27 @@ function Tx({l, v, set, type = "text", opts}) {
    MAIN APP
    ══════════════════════════════════════════════════════════════════════ */
 function App() {
-  const [authed, setAuthed] = useState(localStorage.getItem('flkc_auth') === 'flkc2026!');
+  const ROLES = {wildcats: "full", arflkc: "ar"};
+  const savedRole = localStorage.getItem('flkc_role');
+  const [authed, setAuthed] = useState(!!savedRole);
+  const [userRole, setUserRole] = useState(savedRole || null); /* "full" or "ar" */
   const [pwInput, setPwInput] = useState('');
   const [pwErr, setPwErr] = useState(false);
   const handleLogin = () => {
-    if (pwInput === 'flkc2026!') {
-      localStorage.setItem('flkc_auth', 'flkc2026!');
+    const role = ROLES[pwInput];
+    if (role) {
+      localStorage.setItem('flkc_role', role);
       setAuthed(true);
+      setUserRole(role);
       setPwErr(false);
     } else {
       setPwErr(true);
     }
   };
   const handleLogout = () => {
-    localStorage.removeItem('flkc_auth');
+    localStorage.removeItem('flkc_role');
     setAuthed(false);
+    setUserRole(null);
     setPwInput('');
   };
 
@@ -791,8 +797,8 @@ function App() {
     exportCSV(rows, headers, "FLKC_Install_POs_2026.csv");
   };
   const printDashboard = () => {
-    setTab(10);
-    setTimeout(() => window.print(), 300);
+    const dashIdx = tabMap.indexOf(10);
+    if (dashIdx >= 0) { setTab(dashIdx); setTimeout(() => window.print(), 300); }
   };
 
   /* ── WIP parser ─────────────────────────────────────────────────── */
@@ -1130,7 +1136,12 @@ function App() {
   const aTot = s26.reduce((a, s) => a + s.a, 0);
   const aSf = s26.reduce((a, s) => a + (s.sf || 0), 0);
   const i26 = instLog.filter(i => i.year === 2026);
-  const tabs = ["Overview", "Team", "Reps", "Install", "Sales Log", "Install Log", "Job Costing", "WIP", "P&L Actuals", "Open AR", "Dashboard"];
+  const allTabs = ["Overview", "Team", "Reps", "Install", "Sales Log", "Install Log", "Job Costing", "WIP", "P&L Actuals", "Open AR", "Dashboard"];
+  const arOnlyTabs = [9]; /* tab indices visible to AR role */
+  const tabs = userRole === "ar" ? allTabs.filter((_, i) => arOnlyTabs.includes(i)) : allTabs;
+  /* Map visible tab index to actual tab index */
+  const tabMap = userRole === "ar" ? arOnlyTabs : allTabs.map((_, i) => i);
+  const actualTab = tabMap[tab] !== undefined ? tabMap[tab] : 0;
   const mN = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   /* Rep card component */
@@ -1255,35 +1266,35 @@ function App() {
             <div style={{fontSize: 10, color: "#6b7280", marginTop: 1}}>ForeverLawn KC | DSM | STL &mdash; Caleb Crayton</div>
           </div>
           <div style={{display:'flex', alignItems:'center', gap:10}}>
-            {!scenario && undoStack.length > 0 && <button onClick={popUndo}
+            {userRole === "full" && !scenario && undoStack.length > 0 && <button onClick={popUndo}
               style={{padding:'5px 14px', borderRadius:5, border:'1px solid #5b8af5',
                 background:'rgba(91,138,245,0.1)', color:'#5b8af5',
                 fontSize:10, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
                 whiteSpace:'nowrap'}}>
               Undo ({undoStack.length})</button>}
-            <button onClick={() => scenario ? stopScenario() : startScenario()}
+            {userRole === "full" && <button onClick={() => scenario ? stopScenario() : startScenario()}
               style={{padding:'5px 14px', borderRadius:5,
                 border: scenario ? '2px solid #f59e0b' : '1px solid #2a2d38',
                 background: scenario ? 'rgba(245,158,11,0.15)' : '#181b23',
                 color: scenario ? '#f59e0b' : '#6b7280',
                 fontSize:10, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
                 whiteSpace:'nowrap'}}>
-              Scenario: {scenario ? 'ON' : 'OFF'}</button>
-            <button onClick={() => setInstOn(!instOn)}
+              Scenario: {scenario ? 'ON' : 'OFF'}</button>}
+            {userRole === "full" && <button onClick={() => setInstOn(!instOn)}
               style={{padding:'5px 14px', borderRadius:5,
                 border: instOn ? '2px solid #4ade80' : '2px solid #f87171',
                 background: instOn ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)',
                 color: instOn ? '#4ade80' : '#f87171',
                 fontSize:10, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
                 whiteSpace:'nowrap'}}>
-              Install Div: {instOn ? 'ON' : 'OFF'}</button>
+              Install Div: {instOn ? 'ON' : 'OFF'}</button>}
             <button onClick={handleLogout}
               style={{padding:'4px 10px', borderRadius:4, border:'1px solid #2a2d38',
                 background:'none', color:'#6b7280', fontSize:9, cursor:'pointer',
                 fontFamily:'inherit'}}>Lock</button>
           </div>
         </div>
-        <div style={{display: "flex", gap: 8, flexWrap: "wrap"}}>
+        {userRole === "full" && <div style={{display: "flex", gap: 8, flexWrap: "wrap"}}>
           <KP l="Revenue Goal" v={fm(tRev)} sub={hasBlend ? "Blended: " + fm(bRevFull) + " (" + plMoCount + "mo actual + " + remainMo + "mo proj)" : "Based on rep sales goals"}/>
           <KP l="Actual YTD Sales" v={fm(aTot)} c="#5b8af5"
             sub={fP(tRev > 0 ? aTot / tRev : 0) + " of goal | " + s26.length + " projects"}/>
@@ -1296,7 +1307,7 @@ function App() {
             sub={tRev >= beRev ? fK(tRev - beRev) + " above" : fK(beRev - tRev) + " below"}/>
           {hasBlend && <KP l="Actual GPM" v={fP(plActGPM)} c={plActGPM >= 0.26 ? "#4ade80" : plActGPM >= 0.15 ? "#fbbf24" : "#f87171"}
             sub={plMoCount + " months | Model: " + fP(gpm)}/>}
-        </div>
+        </div>}
       </div>
 
       {/* ── TABS ────────────────────────────────────────────────── */}
@@ -1315,7 +1326,7 @@ function App() {
       <div style={{padding: "14px 18px", maxWidth: 1200}}>
 
         {/* ═══ TAB 0: OVERVIEW ═══ */}
-        {tab === 0 && <Rw>
+        {actualTab === 0 && <Rw>
           <div>
             <Sc t="Revenue Goals (by Rep)">
               {reps.map(r =>
@@ -1411,7 +1422,7 @@ function App() {
         </Rw>}
 
         {/* ═══ TAB 1: TEAM ═══ */}
-        {tab === 1 && <Rw>
+        {actualTab === 1 && <Rw>
           <div>
             <Sc t="Staff">
               {staff.map(s => {
@@ -1560,7 +1571,7 @@ function App() {
         </Rw>}
 
         {/* ═══ TAB 2: REPS ═══ */}
-        {tab === 2 && <div>
+        {actualTab === 2 && <div>
           <div style={{display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 12, marginBottom: 16}}>
             {repC.map(r =>
               <RepCard key={r.id} nm={r.name} rl={r.role} base={r.proBase} car={r.carAnn}
@@ -1591,7 +1602,7 @@ function App() {
         </div>}
 
         {/* ═══ TAB 3: INSTALL ═══ */}
-        {tab === 3 && <Rw>
+        {actualTab === 3 && <Rw>
           <div>
             <Sc t="Crew Setup">
               <Sl l="Crew Members" v={crCt} set={sCrCt} mn={1} mx={6} f={v => v + " laborers"}/>
@@ -1730,7 +1741,7 @@ function App() {
         </Rw>}
 
         {/* ═══ TAB 4: SALES LOG ═══ */}
-        {tab === 4 && (() => {
+        {actualTab === 4 && (() => {
           const yrSales = sales.filter(s => s.y === logYr);
           const filtered = yrSales.filter(s =>
             (slFiltRep === "All" || s.r === slFiltRep) &&
@@ -1948,7 +1959,7 @@ function App() {
         })()}
 
         {/* ═══ TAB 5: INSTALL LOG ═══ */}
-        {tab === 5 && <div>
+        {actualTab === 5 && <div>
           <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12}}>
             <h2 style={{margin: 0, fontSize: 14, fontWeight: 700}}>Install PO Log</h2>
             <div style={{display: "flex", gap: 6}}>
@@ -2038,7 +2049,7 @@ function App() {
         </div>}
 
         {/* ═══ TAB 6: JOB COSTING ═══ */}
-        {tab === 6 && (() => {
+        {actualTab === 6 && (() => {
           const allProj = sales.filter(s => s.y === 2026);
           const selProj = allProj.find(s => s.id === jcProj || s.name === jcProj);
           const projCosts = jobCosts.find(j => j.projId === jcProj);
@@ -2286,7 +2297,7 @@ function App() {
         })()}
 
         {/* ═══ TAB 7: WIP ═══ */}
-        {tab === 7 && <div>
+        {actualTab === 7 && <div>
           <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16}}>
             <h2 style={{margin: 0, fontSize: 17, fontWeight: 800}}>WIP Report</h2>
             <div style={{display:"flex", gap:8, alignItems:"center"}}>
@@ -2427,7 +2438,7 @@ function App() {
         </div>}
 
         {/* ═══ TAB 8: P&L ACTUALS ═══ */}
-        {tab === 8 && <div>
+        {actualTab === 8 && <div>
           <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16}}>
             <h2 style={{margin: 0, fontSize: 17, fontWeight: 800}}>P&L Actuals</h2>
             <label style={{padding: "6px 16px", borderRadius: 6, background: "#5b8af5", color: "#fff",
@@ -2539,7 +2550,7 @@ function App() {
         </div>}
 
         {/* ═══ TAB 9: OPEN AR ═══ */}
-        {tab === 9 && <div>
+        {actualTab === 9 && <div>
           {(() => {
             const parseAR = (file) => {
               const reader = new FileReader();
@@ -2976,7 +2987,7 @@ function App() {
         </div>}
 
         {/* ═══ TAB 10: EXECUTIVE DASHBOARD ═══ */}
-        {tab === 10 && <div id="dashboard-print">
+        {actualTab === 10 && <div id="dashboard-print">
           <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16}}>
             <div style={{textAlign: "center", flex: 1}}>
               <h2 style={{margin: 0, fontSize: 17, fontWeight: 800}}>2026 Executive Summary</h2>
