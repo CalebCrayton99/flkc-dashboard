@@ -338,7 +338,9 @@ function App() {
   };
 
   const [tab, setTab] = useState(0);
-  const [arData, setArData] = useState(null); /* parsed Open AR workbook */
+  const [arData, setArData] = useState(() => { /* parsed Open AR workbook */
+    try { const s = localStorage.getItem('flkc_ar_data'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+  });
   const [arNotes, setArNotes] = useState([]); /* Supabase contact log per invoice */
   const [sales, setSales] = useState([]);
   const [instLog, setInstLog] = useState([]);
@@ -2536,6 +2538,7 @@ function App() {
                 });
                 weeks.sort((a,b) => a.dt.localeCompare(b.dt));
                 setArData(weeks);
+                try { localStorage.setItem('flkc_ar_data', JSON.stringify(weeks)); } catch(e) {}
               };
               reader.readAsArrayBuffer(file);
             };
