@@ -2615,16 +2615,22 @@ function App() {
             const selected = arData ? arData[selIdx] : null;
             const allItems = selected ? bucketOrder.flatMap(b => (selected.buckets[b]?.items || []).map(i => ({...i, bucket: b, rep: findRep(i.num, i.project)}))) : [];
 
-            /* Update an item's invoice number across all weeks and re-save */
-            const updateInvNum = (oldNum, newNum) => {
-              if (!arData || !newNum || oldNum === newNum) return;
+            /* Update an item's field across all weeks and re-save */
+            const updateArItem = (invNum, field, value) => {
+              if (!arData) return;
               const updated = arData.map(w => ({...w, buckets: Object.fromEntries(
                 Object.entries(w.buckets).map(([bk, bv]) => [bk, {...bv,
-                  items: bv.items.map(i => i.num === oldNum ? {...i, num: newNum} : i)}])
+                  items: bv.items.map(i => i.num === invNum ? {...i, [field]: value} : i)}])
               )}));
               setArData(updated);
               supabase.from('ar_uploads').upsert({id: 1, data: updated, updated_at: new Date().toISOString()});
             };
+            const updateInvNum = (oldNum, newNum) => {
+              if (!newNum || oldNum === newNum) return;
+              updateArItem(oldNum, "num", newNum);
+            };
+            /* Unique rep names from sales log */
+            const repNames = [...new Set(sales.map(s => s.r).filter(Boolean))].sort();
 
             /* Inline AR row component with expandable notes + contact log */
             function ARRow({item, idx}) {
@@ -2652,7 +2658,7 @@ function App() {
                     color: item.balance < 0 ? "#4ade80" : "#e8eaed"}}>{fm(item.balance)}</td>
                   <td style={{padding:"6px", textAlign:"right", fontFamily:M,
                     color: item.pastDue > 90 ? "#f87171" : item.pastDue > 60 ? "#fb923c" : item.pastDue > 30 ? "#fbbf24" : "#e8eaed"}}>{item.pastDue}d</td>
-                  <td style={{padding:"6px", fontSize:10, color:"#fbbf24", fontWeight:600}}>{item.rep || ""}</td>
+                  <td style={{padding:"6px", fontSize:10, color: item.manualRep ? "#4ade80" : "#fbbf24", fontWeight:600}}>{item.manualRep || item.rep || ""}</td>
                   <td style={{padding:"6px", fontSize:9, whiteSpace:"nowrap"}}>
                     {lastContact
                       ? <span style={{color:"#4ade80"}}>{lastContact.contact_date} — {lastContact.contacted_by}</span>
@@ -2685,8 +2691,24 @@ function App() {
                             <button onClick={() => setEditNum(inv)}
                               style={{padding:"2px 8px", fontSize:9, background:"none", border:"1px solid #2a2d38",
                                 borderRadius:4, color:"#5b8af5", cursor:"pointer"}}>Edit</button>
-                            {!item.rep && <span style={{fontSize:9, color:"#f87171"}}>No rep match — edit # to fix</span>}
+                            {!item.rep && !item.manualRep && <span style={{fontSize:9, color:"#f87171"}}>No rep match</span>}
                           </React.Fragment>}
+                    </div>
+                    {/* Rep selector */}
+                    <div style={{padding:"6px 0", borderBottom:"1px solid #1e2028", marginBottom:6,
+                      display:"flex", alignItems:"center", gap:8}} onClick={e => e.stopPropagation()}>
+                      <span style={{color:"#6b7280", fontWeight:600, fontSize:9, textTransform:"uppercase"}}>Rep: </span>
+                      <select value={item.manualRep || item.rep || ""}
+                        onChange={e => updateArItem(inv, "manualRep", e.target.value || null)}
+                        style={{padding:"2px 6px", fontSize:10, background:"#0f1117", border:"1px solid #2a2d38",
+                          borderRadius:4, color:"#e8eaed"}}>
+                        <option value="">— Select —</option>
+                        {repNames.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                      {item.manualRep && <button onClick={() => updateArItem(inv, "manualRep", null)}
+                        style={{padding:"2px 8px", fontSize:9, background:"none", border:"1px solid #2a2d38",
+                          borderRadius:4, color:"#6b7280", cursor:"pointer"}}>Reset to auto</button>}
+                      {item.rep && !item.manualRep && <span style={{fontSize:9, color:"#6b7280"}}>Auto-detected from sales log</span>}
                     </div>
                     {/* Excel notes */}
                     {item.notes && <div style={{padding:"8px 0 6px", fontSize:10, color:"#9ca3af",
