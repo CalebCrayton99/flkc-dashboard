@@ -2585,24 +2585,41 @@ function App() {
             /* Match AR invoices to sales log reps by project number */
             const repLookup = {};
             sales.forEach(s => { if (s.id && s.r) repLookup[s.id] = s.r; });
-            const findRep = (inv) => {
-              if (!inv) return "";
-              const base = String(inv).split("-")[0].trim();
-              if (repLookup[base]) return repLookup[base];
-              /* try matching with leading zeros stripped */
+            const findRep = (inv, project) => {
+              if (!inv && !project) return "";
+              /* try invoice number first: 25013-0001 → 25013 */
+              const base = inv ? String(inv).split("-")[0].trim() : "";
+              if (base && repLookup[base]) return repLookup[base];
               const num = base.replace(/^0+/, "");
               for (const k in repLookup) { if (k.replace(/^0+/, "") === num) return repLookup[k]; }
+              /* try project number embedded in project field: "25080 Fat Cat's..." → 25080 */
+              if (project) {
+                const pm = String(project).match(/^(\d{5})/);
+                if (pm && repLookup[pm[1]]) return repLookup[pm[1]];
+              }
               return "";
             };
             const selIdx = arData ? (arWeekIdx < 0 || arWeekIdx >= arData.length ? arData.length - 1 : arWeekIdx) : 0;
             const selected = arData ? arData[selIdx] : null;
-            const allItems = selected ? bucketOrder.flatMap(b => (selected.buckets[b]?.items || []).map(i => ({...i, bucket: b, rep: findRep(i.num)}))) : [];
+            const allItems = selected ? bucketOrder.flatMap(b => (selected.buckets[b]?.items || []).map(i => ({...i, bucket: b, rep: findRep(i.num, i.project)}))) : [];
+
+            /* Update an item's invoice number across all weeks and re-save */
+            const updateInvNum = (oldNum, newNum) => {
+              if (!arData || !newNum || oldNum === newNum) return;
+              const updated = arData.map(w => ({...w, buckets: Object.fromEntries(
+                Object.entries(w.buckets).map(([bk, bv]) => [bk, {...bv,
+                  items: bv.items.map(i => i.num === oldNum ? {...i, num: newNum} : i)}])
+              )}));
+              setArData(updated);
+              supabase.from('ar_uploads').upsert({id: 1, data: updated, updated_at: new Date().toISOString()});
+            };
 
             /* Inline AR row component with expandable notes + contact log */
             function ARRow({item, idx}) {
               const [open, setOpen] = useState(false);
               const [newNote, setNewNote] = useState("");
               const [newBy, setNewBy] = useState("");
+              const [editNum, setEditNum] = useState(null);
               const inv = item.num || "";
               const logs = notesFor(inv);
               const lastContact = logs.length > 0 ? logs[0] : null;
@@ -2633,6 +2650,32 @@ function App() {
                 </tr>
                 {open && <tr style={{borderBottom:"1px solid #2a2d38"}}>
                   <td colSpan={9} style={{padding:"0 6px 10px 20px", background:"#181b23"}}>
+                    {/* Editable project number */}
+                    <div style={{padding:"8px 0 6px", borderBottom:"1px solid #1e2028", marginBottom:6,
+                      display:"flex", alignItems:"center", gap:8}} onClick={e => e.stopPropagation()}>
+                      <span style={{color:"#6b7280", fontWeight:600, fontSize:9, textTransform:"uppercase"}}>Project #: </span>
+                      {editNum !== null
+                        ? <React.Fragment>
+                            <input value={editNum} onChange={e => setEditNum(e.target.value)}
+                              onKeyDown={e => { if (e.key === "Enter") { updateInvNum(inv, editNum.trim()); setEditNum(null); }}}
+                              style={{width:120, padding:"2px 6px", fontSize:10, fontFamily:M,
+                                background:"#0f1117", border:"1px solid #5b8af5", borderRadius:4, color:"#e8eaed"}}
+                              autoFocus/>
+                            <button onClick={() => { updateInvNum(inv, editNum.trim()); setEditNum(null); }}
+                              style={{padding:"2px 8px", fontSize:9, background:"#5b8af5", border:"none",
+                                borderRadius:4, color:"#fff", cursor:"pointer"}}>Save</button>
+                            <button onClick={() => setEditNum(null)}
+                              style={{padding:"2px 8px", fontSize:9, background:"none", border:"1px solid #2a2d38",
+                                borderRadius:4, color:"#6b7280", cursor:"pointer"}}>Cancel</button>
+                          </React.Fragment>
+                        : <React.Fragment>
+                            <span style={{fontFamily:M, fontSize:10, color:"#e8eaed"}}>{inv}</span>
+                            <button onClick={() => setEditNum(inv)}
+                              style={{padding:"2px 8px", fontSize:9, background:"none", border:"1px solid #2a2d38",
+                                borderRadius:4, color:"#5b8af5", cursor:"pointer"}}>Edit</button>
+                            {!item.rep && <span style={{fontSize:9, color:"#f87171"}}>No rep match — edit # to fix</span>}
+                          </React.Fragment>}
+                    </div>
                     {/* Excel notes */}
                     {item.notes && <div style={{padding:"8px 0 6px", fontSize:10, color:"#9ca3af",
                       borderBottom:"1px solid #1e2028", marginBottom:6}}>
@@ -2725,8 +2768,10 @@ function App() {
                   <Sc t="Weekly AR Trend">
                     {(() => {
                       const maxAR = Math.max(...arData.map(w => w.grandTotal), 1);
-                      return arData.map((w, i) => <Br key={w.name} l={w.name} v={w.grandTotal} mx={maxAR}
-                        c={i === selIdx ? "#5b8af5" : "#3b5998"}/>);
+                      return arData.map((w, i) => <div key={w.name} onClick={() => setArWeekIdx(i)}
+                        style={{cursor:"pointer", opacity: i === selIdx ? 1 : 0.7}}>
+                        <Br l={w.name} v={w.grandTotal} mx={maxAR} c={i === selIdx ? "#5b8af5" : "#3b5998"}/>
+                      </div>);
                     })()}
                   </Sc>
                   <Sc t="Aging Breakdown by Week">
@@ -2741,7 +2786,8 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {arData.map((w, i) => <tr key={w.name} style={{background: i === selIdx ? "#1e2028" : "transparent"}}>
+                          {arData.map((w, i) => <tr key={w.name} onClick={() => setArWeekIdx(i)}
+                            style={{background: i === selIdx ? "#1e2028" : "transparent", cursor:"pointer"}}>
                             <td style={{padding:"4px 6px", borderBottom:"1px solid #1e2028"}}>{w.name}</td>
                             {bucketOrder.map(b => <td key={b} style={{textAlign:"right", padding:"4px 6px",
                               borderBottom:"1px solid #1e2028"}}>{fm(w.buckets[b]?.total || 0)}</td>)}
