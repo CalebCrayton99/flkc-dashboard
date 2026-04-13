@@ -478,6 +478,11 @@ function App() {
         if (arErr) console.error('AR load error:', arErr);
         if (arStore && arStore.data) { setArData(arStore.data); console.log('AR data loaded from Supabase'); }
 
+        const {data: wipStore, error: wipErr} = await supabase
+          .from('wip_uploads').select('data').eq('id', 1).single();
+        if (wipErr) console.error('WIP load error:', wipErr);
+        if (wipStore && wipStore.data) { setWipHistory(wipStore.data); console.log('WIP data loaded from Supabase'); }
+
       } catch(err) {
         console.error('Supabase load error:', err);
         setDbError(err.message);
@@ -645,8 +650,11 @@ function App() {
   const [orderedSf, setOrderedSf] = useState(0);
 
   /* ── WIP & P&L state ──────────────────────────────────────────── */
-  const [wipData, setWipData] = useState(null);
-  const [wipDate, setWipDate] = useState('');
+  const [wipHistory, setWipHistory] = useState(null); /* array of {name, dt, date, projects} */
+  const [wipWeekIdx, setWipWeekIdx] = useState(-1); /* -1 = latest */
+  const wipSelected = wipHistory ? wipHistory[wipWeekIdx < 0 || wipWeekIdx >= wipHistory.length ? wipHistory.length - 1 : wipWeekIdx] : null;
+  const wipData = wipSelected ? wipSelected.projects : null;
+  const wipDate = wipSelected ? wipSelected.date : '';
   const [plData, setPlData] = useState(null);
 
   /* ── Job Costing state ─────────────────────────────────────────── */
@@ -794,7 +802,7 @@ function App() {
       const wb = XLSX.read(e.target.result, {type: 'array'});
       const ws = wb.Sheets[wb.SheetNames[0]];
       const dateCell = ws['B4'];
-      setWipDate(dateCell ? dateCell.v : '');
+      const reportDate = dateCell ? String(dateCell.v) : '';
       const projects = [];
       for (let r = 9; r <= 90; r++) {
         const bCell = ws['B' + r];
@@ -837,7 +845,27 @@ function App() {
           workingCapital: getNum('AE'),
         });
       }
-      setWipData(projects);
+      /* Build date-based name for this upload */
+      const now = new Date();
+      const m = now.getMonth() + 1, d = now.getDate(), y = String(now.getFullYear()).slice(2);
+      const displayName = reportDate || (m + "." + d + "." + y);
+      const dt = reportDate
+        ? (() => { const p = reportDate.split(/[\/\-\.]/); return p.length >= 3 ? "20" + p[2].slice(-2) + "-" + p[0].padStart(2,"0") + "-" + p[1].padStart(2,"0") : now.toISOString().slice(0,10); })()
+        : now.toISOString().slice(0,10);
+      const newWeek = {name: displayName, dt, date: reportDate, projects};
+      /* Merge into history */
+      const existing = wipHistory || [];
+      const merged = [...existing];
+      const idx = merged.findIndex(w => w.dt === dt);
+      if (idx >= 0) merged[idx] = newWeek; else merged.push(newWeek);
+      merged.sort((a,b) => a.dt.localeCompare(b.dt));
+      setWipHistory(merged);
+      setWipWeekIdx(-1);
+      supabase.from('wip_uploads').upsert({id: 1, data: merged, updated_at: new Date().toISOString()})
+        .then(({error}) => {
+          if (error) { console.error('WIP save error:', error); alert('WIP save failed: ' + error.message); }
+          else { console.log('WIP data saved (' + merged.length + ' weeks)'); }
+        });
     };
     reader.readAsArrayBuffer(file);
   };
@@ -2261,13 +2289,31 @@ function App() {
         {tab === 7 && <div>
           <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16}}>
             <h2 style={{margin: 0, fontSize: 17, fontWeight: 800}}>WIP Report</h2>
-            <label style={{padding: "6px 16px", borderRadius: 6, background: "#5b8af5", color: "#fff",
-              fontSize: 11, fontWeight: 700, cursor: "pointer"}}>
-              Upload WIP Report (.xlsx)
-              <input type="file" accept=".xlsx,.xls" style={{display: "none"}}
-                onChange={e => { if(e.target.files[0]) parseWIP(e.target.files[0]); }}/>
-            </label>
+            <div style={{display:"flex", gap:8, alignItems:"center"}}>
+              <label style={{padding: "6px 16px", borderRadius: 6, background: "#5b8af5", color: "#fff",
+                fontSize: 11, fontWeight: 700, cursor: "pointer"}}>
+                Upload WIP Report (.xlsx)
+                <input type="file" accept=".xlsx,.xls" style={{display: "none"}}
+                  onChange={e => { if(e.target.files[0]) parseWIP(e.target.files[0]); }}/>
+              </label>
+              {wipHistory && <button onClick={() => {
+                if (!confirm("Reset all WIP history?")) return;
+                setWipHistory(null); setWipWeekIdx(-1);
+                supabase.from('wip_uploads').upsert({id: 1, data: null, updated_at: new Date().toISOString()});
+              }} style={{padding:"6px 12px", fontSize:10, fontWeight:600, background:"none",
+                border:"1px solid #f87171", borderRadius:6, color:"#f87171", cursor:"pointer"}}>Reset</button>}
+            </div>
           </div>
+          {wipHistory && wipHistory.length > 0 && <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:12}}>
+            <span style={{fontSize:11, fontWeight:600}}>Week:</span>
+            <select value={wipWeekIdx < 0 || wipWeekIdx >= wipHistory.length ? wipHistory.length - 1 : wipWeekIdx}
+              onChange={e => setWipWeekIdx(+e.target.value)}
+              style={{padding:"4px 8px", fontSize:11, background:"#181b23", border:"1px solid #2a2d38",
+                borderRadius:4, color:"#e8eaed", fontFamily:"JetBrains Mono"}}>
+              {wipHistory.map((w, i) => <option key={w.dt} value={i}>{w.name}{i === wipHistory.length - 1 ? " (latest)" : ""}</option>)}
+            </select>
+            <span style={{fontSize:10, color:"#6b7280"}}>{wipHistory.length} reports</span>
+          </div>}
           {wipDate && <div style={{fontSize: 10, color: "#6b7280", marginBottom: 12}}>Report Date: {wipDate}</div>}
           {!wipData && <div style={{textAlign: "center", padding: 40, color: "#6b7280", fontSize: 12}}>
             Upload a WIP report (.xlsx) to see project-level financial data.</div>}

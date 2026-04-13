@@ -71,12 +71,21 @@ CREATE TABLE IF NOT EXISTS ar_uploads (
 );
 INSERT INTO ar_uploads (id, data) VALUES (1, null) ON CONFLICT (id) DO NOTHING;
 
+-- 3d. Create wip_uploads table (persists parsed WIP report history)
+CREATE TABLE IF NOT EXISTS wip_uploads (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  data JSONB,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO wip_uploads (id, data) VALUES (1, null) ON CONFLICT (id) DO NOTHING;
+
 -- 4. Enable Row Level Security
 ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE install_pos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE job_costs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ar_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ar_uploads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE wip_uploads ENABLE ROW LEVEL SECURITY;
 
 -- 5. Allow anon read/write (app-level password gate handles auth)
 CREATE POLICY "anon_all_sales" ON sales FOR ALL TO anon USING (true) WITH CHECK (true);
@@ -84,6 +93,7 @@ CREATE POLICY "anon_all_install" ON install_pos FOR ALL TO anon USING (true) WIT
 CREATE POLICY "anon_all_jobcosts" ON job_costs FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "anon_all_ar_notes" ON ar_notes FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "anon_all_ar_uploads" ON ar_uploads FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon_all_wip_uploads" ON wip_uploads FOR ALL TO anon USING (true) WITH CHECK (true);
 
 -- 6. Migrate SEED data into sales
 INSERT INTO sales (project_number, name, amount, date, proj_mat, rep, market, rep_project, playground, k9, landscape, golf, sports, misc, sqft, note, year) VALUES
