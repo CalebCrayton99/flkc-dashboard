@@ -471,9 +471,10 @@ function App() {
           .from('ar_notes').select('*').order('contact_date', {ascending: false});
         if (arNotesData) setArNotes(arNotesData);
 
-        const {data: arStore} = await supabase
+        const {data: arStore, error: arErr} = await supabase
           .from('ar_uploads').select('data').eq('id', 1).single();
-        if (arStore && arStore.data) setArData(arStore.data);
+        if (arErr) console.error('AR load error:', arErr);
+        if (arStore && arStore.data) { setArData(arStore.data); console.log('AR data loaded from Supabase'); }
 
       } catch(err) {
         console.error('Supabase load error:', err);
@@ -2540,7 +2541,11 @@ function App() {
                 });
                 weeks.sort((a,b) => a.dt.localeCompare(b.dt));
                 setArData(weeks);
-                supabase.from('ar_uploads').upsert({id: 1, data: weeks, updated_at: new Date().toISOString()});
+                supabase.from('ar_uploads').upsert({id: 1, data: weeks, updated_at: new Date().toISOString()})
+                  .then(({error}) => {
+                    if (error) { console.error('AR save error:', error); alert('AR save failed: ' + error.message); }
+                    else { console.log('AR data saved to Supabase (' + weeks.length + ' weeks)'); }
+                  });
               };
               reader.readAsArrayBuffer(file);
             };
