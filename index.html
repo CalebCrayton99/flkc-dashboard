@@ -2411,13 +2411,21 @@ function App() {
             const totalOverbilled = sumField('overbilled');
             const totalUnderbilled = sumField('underbilled');
             const totalBacklog = sumField('workingCapital');
+            const totalInvoicedAll = sumField('totalInvoiced');
+            const totalEarnedGP = sumField('earnedGP');
+            const totalCostToComplete = sumField('estCostToComplete');
+            const totalRemainingContract = sumField('remainingContract');
             const slipped = wipData.filter(p => p.costSlip < 0);
             const overBilledProj = wipData.filter(p => p.overbilled > 5000);
             const underBilledProj = wipData.filter(p => p.underbilled > 5000);
             return <div>
               <div style={{display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16}}>
                 <KP l="Total Contract Value" v={fm(totalContract)}/>
-                <KP l="Total Cost to Date" v={fm(totalCostToDate)} c="#fbbf24"/>
+                <KP l="Total Invoiced (Billed)" v={fm(totalInvoicedAll)} c="#5b8af5"/>
+                <KP l="Total Cost to Date (Spent)" v={fm(totalCostToDate)} c="#fbbf24"/>
+                <KP l="Cost to Complete" v={fm(totalCostToComplete)} c="#a78bfa"/>
+                <KP l="Remaining to Bill" v={fm(totalRemainingContract)} c="#5b8af5"/>
+                <KP l="Earned GP to Date" v={fm(totalEarnedGP)} c={totalEarnedGP >= 0 ? "#4ade80" : "#f87171"}/>
                 <KP l="Est Final GP" v={fm(totalEstFinalGP)} c={totalEstFinalGP >= 0 ? "#4ade80" : "#f87171"}/>
                 <KP l="Total Overbilled" v={fm(totalOverbilled)} c="#fbbf24"/>
                 <KP l="Total Underbilled" v={fm(totalUnderbilled)} c="#5b8af5"/>
@@ -2430,11 +2438,11 @@ function App() {
                       <tr style={{borderBottom: "2px solid #2a2d38"}}>
                         <th style={{padding: "5px 6px", textAlign: "left", color: "#6b7280", fontSize: 9}}>Project</th>
                         <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Contract $</th>
-                        <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Budget</th>
-                        <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Actual Cost</th>
+                        <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Invoiced</th>
+                        <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Spent</th>
+                        <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Cost to Complete</th>
                         <th style={{padding: "5px 6px", textAlign: "center", color: "#6b7280", fontSize: 9, minWidth: 80}}>% Complete</th>
                         <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Est Final GP</th>
-                        <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>GP Slip</th>
                         <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Over/Under</th>
                         <th style={{padding: "5px 6px", textAlign: "right", color: "#6b7280", fontSize: 9}}>Remaining</th>
                       </tr>
@@ -2448,8 +2456,9 @@ function App() {
                         return <tr key={i} style={{borderBottom: "1px solid #2a2d38"}}>
                           <td style={{padding: "5px 6px", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"}}>{p.name}</td>
                           <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M}}>{fm(p.contractPrice)}</td>
-                          <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M}}>{fm(p.currentBudget)}</td>
-                          <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M}}>{fm(p.actualCost)}</td>
+                          <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M, color: "#5b8af5"}}>{fm(p.totalInvoiced)}</td>
+                          <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M, color: "#fbbf24"}}>{fm(p.actualCost)}</td>
+                          <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M, color: "#a78bfa"}}>{fm(p.estCostToComplete)}</td>
                           <td style={{padding: "5px 6px"}}>
                             <div style={{display: "flex", alignItems: "center", gap: 4}}>
                               <div style={{flex: 1, height: 6, background: "#2a2d38", borderRadius: 3}}>
@@ -2461,9 +2470,6 @@ function App() {
                           </td>
                           <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M, color: gpColor}}>
                             {fm(p.estFinalGP)} <span style={{fontSize: 8}}>({(p.finalGPpct * 100).toFixed(1)}%)</span>
-                          </td>
-                          <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M, color: slipColor}}>
-                            {(p.costSlip * 100).toFixed(1)}%
                           </td>
                           <td style={{padding: "5px 6px", textAlign: "right", fontFamily: M, color: billing.color}}>
                             {billing.val > 0 ? billing.label + " " + fm(billing.val) : "-"}
